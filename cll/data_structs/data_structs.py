@@ -1,11 +1,16 @@
 """File for core data structures."""
 
+import shutil
+
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Union
 
 from dataclasses_json import DataClassJsonMixin
 
 from llama_index.schema import BaseDocument
+from rich.tree import Tree as RichTree
+from rich.panel import Panel
+from rich import print
 
 
 @dataclass
@@ -231,17 +236,58 @@ class IndexGraph(IndexStruct):
         net.show_buttons(filter_=['physics'])
         net.save_graph("test.html")
 
-    def __repr__(self) -> str:
-        """Get string representation, in the manner of a git log."""
-        return self._get_repr(_str=self._legend())
+    def _root_info(self) -> str:
+        _str = "\n# Root Node Index (branches:total_nodes)) #\n"
+        for root in self.root_nodes.values():
+            leaves = self.get_leaves(root)
+            children = self.get_all_children(root)
+            _str += f"{root.index}; ({len(leaves)}:{len(children)}):\t\t{root.text.splitlines()[0]}"
+            if self.all_nodes[root.index].node_info.get("checked_out", False):
+                _str += "\t\t<-- CURRENT_ROOT"
+        print(Panel(_str, title="Root Nodes"))
 
-    def get_full_repr(self, summaries=False) -> str:
-        uber_root = Node(
-            index=-1,
-            text='(displaying all nodes)',
-            child_indices=[i for i in self.root_nodes.keys()],
-            node_info={}
+    def legend(self) -> str:
+        txt = (
+            "checked out nodes are in [bold red]bold red[/bold red]\n"
+            "other nodes are in [dim blue]dim blue[/dim blue]\n"
+            "navigate with [magenta]hjkl[/magenta]\n"
+            "show the current prompt with [magenta]p[/magenta]\n"
+            "show the tree with [magenta]t[/magenta]\n"
+            "(this will be the checked out path plus template)"
         )
-        _str = self._legend()
-        _str += self._root_info()
-        return self._get_repr(uber_root, _str, summaries=summaries)
+        print(Panel.fit(txt, title="Legend", border_style="bold magenta"))
+
+    def __repr__(self) -> None:
+        self.legend()
+        print(self._get_repr())
+        return ""
+
+    def _get_repr(self, node: Optional[Node] = None) -> str:
+        if node is None:
+            checked_out = [
+                i for i, n in self.all_nodes.items() if n.node_info.get("checked_out", False)
+            ]
+            if checked_out:
+                node = self.all_nodes[checked_out[0]]
+            elif len(self.all_nodes):
+                node = self.all_nodes[min(self.all_nodes.keys())]
+            else:
+                return
+        tree = RichTree(self._text(node), style="bold red", guide_style="bold magenta")
+        return self._get_repr_recursive(node, tree)
+
+    def _get_repr_recursive(self, node: Optional[Node] = None, tree: Optional[RichTree] = None) -> str:
+        nodes = self.get_children(node)
+        for child_node in nodes.values():
+            style = "bold red" if child_node.node_info.get("checked_out", False) else "dim blue"
+            subtree = tree.add(self._text(child_node), style=style)
+            self._get_repr_recursive(child_node, subtree)
+        return tree
+
+    def _text(self, node: Node) -> str:
+        text_width = shutil.get_terminal_size().columns - 30
+        text = node.text.replace("\n", " ")
+        text = f"{node.index}: {text}"
+        if len(text) > text_width:
+            text = text[:text_width] + " ..."
+        return text

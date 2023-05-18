@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-import cllp
+import tttp
 import openai
 import tiktoken
 import typer
@@ -93,11 +93,11 @@ class Config:
         instance = cls()
         instance.config_dir.mkdir(parents=True, exist_ok=True)
         instance.config_path.write_text(yaml.dump(Config.TURBO_TEXT_TRANSFORMER_DEFAULT_PARAMS))
-        config = Config.load_config()
+        config = Config.load()
 
         # Find the templates, and make sure they are in the right place
-        cllp_dir = Path(cllp.__file__).parent
-        new_templates = cllp_dir.parent / "templates"
+        tttpath = Path(tttp.__file__).parent
+        new_templates = tttpath.parent / "templates"
         templates = instance.config_dir / "templates"
         templates.mkdir(parents=True, exist_ok=True)
         for template in new_templates.glob("*.j2"):
@@ -105,7 +105,7 @@ class Config:
                 (templates / template.name).write_text(template.read_text())
 
         Path(config._dict.get("chat_path", "~/.config/cll/chats")).expanduser().mkdir(parents=True, exist_ok=True)
-        return instance
+        return config
 
     @staticmethod
     def create_openai_config(api_key):
@@ -140,7 +140,7 @@ class Config:
         if not reinit and Config().config_path.exists():
             return Config.load()
 
-        print("Config file not found. Creating one for you...", err=True, color="red")
+        print("Config file not found. Creating one for you...")
         config = Config.create()
         openai_api_key = typer.prompt("OpenAI API Key", type=str)
         if openai_api_key:

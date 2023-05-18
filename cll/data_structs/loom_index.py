@@ -1,11 +1,9 @@
 import json
 from typing import Any, Dict, Optional, Sequence, List, Union
 
-from clm.data_structs import IndexGraph, Node
-from gpt_index.readers.schema.base import Document
+from .data_structs import IndexGraph, Node
+from llama_index.readers.schema.base import Document
 from llama_index.schema import BaseDocument
-
-from dataclasses import field
 
 
 class LoomIndex:
@@ -22,17 +20,20 @@ class LoomIndex:
     """
 
     index_struct_cls = IndexGraph
-    tags: Dict[str, Node] = field(default_factory=dict)
+    tags: Dict[str, Node] = {}
     summary: Optional[str] = None
     name: Optional[str] = None
     cache_size: int = 4
     latest_summary: str = "None."
 
-    def __init__(self, name=None, summary=None, generate_embeddings=False, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, name=None, _index_struct=None):
+        self._index_struct = _index_struct or self.index_struct_cls()
         self.name = name
-        self.summary = summary
-        self.generate_embeddings = generate_embeddings
+
+    @property
+    def index_struct(self):
+        """Get the index struct."""
+        return self._index_struct
 
     def _create_node(
         self,
@@ -203,20 +204,15 @@ class LoomIndex:
         """Tag the current path."""
         self.tags[tag] = self.path[-1].index
 
-    def _insert(self, document: Optional[BaseDocument] = None, node: Optional[Node] = None, **_: Any) -> None:
+    def _insert(self, node: Union[Node, str], **_: Any) -> None:
         """Insert a document."""
-        if node and document:
-            raise ValueError("Cannot insert both a node and a document.")
-        if document:
-            node = self._get_nodes_from_document(document, self.index_struct.size)
+        if isinstance(node, str):
+            node = self._create_node(text=node)
         if len(self.path):
             current_node = self.path[-1]
             self.index_struct.insert_under_parent(node, current_node)
         else:
             self.index_struct.add_root_node(node)
-
-        if self.generate_summaries:
-            self.generate_summary()
 
     def add_context(self, context: str, node: Optional[Node] = None) -> None:
         """Add a global context."""
@@ -225,43 +221,15 @@ class LoomIndex:
         node.node_info["context"] = context.doc_id
         self.docstore.add_documents([context])
 
-    def extend(self, document: Union[BaseDocument, Node]) -> None:
-        self._insert(document=document)
+    def extend(self, document: Union[str, Node]) -> None:
+        self._insert(document)
         self.checkout_path(self.index_struct.last_node)
 
     def new(self, document: BaseDocument) -> None:
         """Create a new branch."""
         self.clear_checkout()
-        self._insert(document=document)
+        self._insert(document)
         self.checkout_path(self.index_struct.last_node)
-
-    @classmethod
-    def load_from_dict(
-        cls, result_dict: Dict[str, Any], **kwargs: Any
-    ) -> "LoomIndex":
-        """Load index from dictionary."""
-        if "index_struct" in result_dict:
-            index_struct = cls.index_struct_cls.from_dict(result_dict["index_struct"])
-        index = cls(index_struct=index_struct, **kwargs)
-        if "tags" in result_dict:
-            index.tags = result_dict["tags"]
-        if "name" in result_dict:
-            index.name = result_dict["name"]
-        return index
-
-    def save_to_dict(self, **save_kwargs: Any) -> dict:
-        """Save index to dictionary."""
-        result_dict: Dict[str, Any] = {
-            "index_struct_id": self.index_struct.get_doc_id(),
-        }
-        result_dict["tags"] = self.tags
-        result_dict["name"] = self.name
-        return result_dict
-
-    @classmethod
-    def load_from_string(cls, index_string: str, **kwargs: Any) -> "LoomIndex":
-        result_dict = json.loads(index_string)
-        return cls.load_from_dict(result_dict, **kwargs)
 
     @classmethod
     def load_from_disk(cls, save_path: str, **kwargs: Any) -> "LoomIndex":
@@ -269,9 +237,23 @@ class LoomIndex:
             file_contents = f.read()
             return cls.load_from_string(file_contents, **kwargs)
 
-    def save_to_string(self, **save_kwargs: Any) -> str:
-        out_dict = self.save_to_dict(**save_kwargs)
-        return json.dumps(out_dict, **save_kwargs)
+    @classmethod
+    def load_from_string(cls, index_string: str, **kwargs: Any) -> "LoomIndex":
+        result_dict = json.loads(index_string)
+        return cls.load_from_dict(result_dict, **kwargs)
+
+    @classmethod
+    def load_from_dict(
+        cls, result_dict: Dict[str, Any], **kwargs: Any
+    ) -> "LoomIndex":
+        """Load index from dictionary."""
+        index_struct = cls.index_struct_cls.from_json(result_dict["index_struct"])
+        index = cls(_index_struct=index_struct, **kwargs)
+        if "tags" in result_dict:
+            index.tags = result_dict["tags"]
+        if "name" in result_dict:
+            index.name = result_dict["name"]
+        return index
 
     def save_to_disk(
         self, save_path: str, encoding: str = "ascii", **save_kwargs: Any
@@ -279,3 +261,16 @@ class LoomIndex:
         index_string = self.save_to_string(**save_kwargs)
         with open(save_path, "wt", encoding=encoding) as f:
             f.write(index_string)
+
+    def save_to_string(self, **save_kwargs: Any) -> str:
+        out_dict = self.save_to_dict(**save_kwargs)
+        return json.dumps(out_dict, **save_kwargs)
+
+    def save_to_dict(self, **save_kwargs: Any) -> dict:
+        """Save index to dictionary."""
+        result_dict: Dict[str, Any] = {
+            "index_struct": self.index_struct.to_json()
+        }
+        result_dict["tags"] = self.tags
+        result_dict["name"] = self.name
+        return result_dict

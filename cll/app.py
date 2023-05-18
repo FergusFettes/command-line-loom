@@ -1,4 +1,3 @@
-import os
 import re
 import shutil
 from collections import defaultdict
@@ -33,8 +32,9 @@ class App:
         self.templater = Templater(config=self.config)
         self.io = IO
         self.tree = self.store.load_file()
-        self.params = self.openai_config["engine_params"]
-        self.tree.params = self.params
+        if self.openai_config:
+            self.params = self.openai_config["engine_params"]
+            self.tree.params = self.params
 
     @staticmethod
     def simple_gen(config, params):

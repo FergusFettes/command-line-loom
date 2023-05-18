@@ -1,4 +1,3 @@
-import shutil
 from copy import deepcopy
 from dataclasses import dataclass
 # from functools import partial
@@ -6,12 +5,10 @@ from pathlib import Path
 from typing import List, Optional
 
 import click
-from gpt_index import Document, GPTMultiverseIndex
-from gpt_index.data_structs.data_structs import Node
+from cll.data_structs import LoomIndex
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
-from rich.tree import Tree as RichTree
 from typer import Argument, Context
 from typing_extensions import Annotated
 
@@ -36,21 +33,19 @@ class DummyTree:
 @dataclass
 class Tree:
     file: Optional[str] = None
-    index: Optional[GPTMultiverseIndex] = None
+    index: Optional[LoomIndex] = None
     params: Optional[dict] = None
     name: Optional[str] = None
-    termwidth: int = 80
     join: str = ""
 
     def __post_init__(self):
         self.file = Path(self.file)
-        self.termwidth = shutil.get_terminal_size().columns
 
         if self.file and self.file.exists():
-            self.index = GPTMultiverseIndex.load_from_disk(str(self.file))
+            self.index = LoomIndex.load_from_disk(str(self.file))
             return
 
-        self.index = GPTMultiverseIndex(documents=[])
+        self.index = LoomIndex()
 
     @property
     def prompt_context(self):
@@ -76,12 +71,12 @@ class Tree:
         self.extend(prompt, save=True)
 
     def extend(self, response, save=False):
-        self.index.extend(Document(response))
+        self.index.extend(response)
         if save:
             self.save()
 
     def insert(self, response, save=False):
-        self.index._insert(document=Document(response))
+        self.index._insert(response)
         if save:
             self.save()
 
@@ -91,73 +86,11 @@ class Tree:
     def __len__(self):
         return len(self.index.index_struct.all_nodes)
 
-    def get_full_repr(self, summaries=False) -> str:
-        uber_root = Node(
-            index=-1,
-            text="(displaying all nodes)",
-            child_indices=[i for i in self.index.index_struct.root_nodes.keys()],
-            node_info={},
-        )
-        self.legend()
-        self._root_info()
-        return self._get_repr(uber_root)
-
-    def _root_info(self) -> str:
-        _str = "\n# Root Node Index (branches:total_nodes)) #\n"
-        for root in self.index.index_struct.root_nodes.values():
-            leaves = self.index.index_struct.get_leaves(root)
-            children = self.index.index_struct.get_all_children(root)
-            _str += f"{root.index}; ({len(leaves)}:{len(children)}):\t\t{root.text.splitlines()[0]}"
-            if self.index.index_struct.all_nodes[root.index].node_info.get("checked_out", False):
-                _str += "\t\t<-- CURRENT_ROOT"
-        print(Panel(_str, title="Root Nodes"))
-
-    def legend(self) -> str:
-        txt = (
-            "checked out nodes are in [bold red]bold red[/bold red]\n"
-            "other nodes are in [dim blue]dim blue[/dim blue]\n"
-            "navigate with [magenta]hjkl[/magenta]\n"
-            "show the current prompt with [magenta]p[/magenta]\n"
-            "show the tree with [magenta]t[/magenta]\n"
-            "(this will be the checked out path plus template)"
-        )
-        print(Panel.fit(txt, title="Legend", border_style="bold magenta"))
-
-    def _get_repr(self, node: Optional[Node] = None) -> str:
-        if node is None:
-            checked_out = [
-                i for i, n in self.index.index_struct.all_nodes.items() if n.node_info.get("checked_out", False)
-            ]
-            if checked_out:
-                node = self.index.index_struct.all_nodes[checked_out[0]]
-            elif len(self.index.index_struct.all_nodes):
-                node = self.index.index_struct.all_nodes[min(self.index.index_struct.all_nodes.keys())]
-            else:
-                return
-        tree = RichTree(self._text(node), style="bold red", guide_style="bold magenta")
-        return self._get_repr_recursive(node, tree)
-
-    def _get_repr_recursive(self, node: Optional[Node] = None, tree: Optional[RichTree] = None) -> str:
-        nodes = self.index.index_struct.get_children(node)
-        for child_node in nodes.values():
-            style = "bold red" if child_node.node_info.get("checked_out", False) else "dim blue"
-            subtree = tree.add(self._text(child_node), style=style)
-            self._get_repr_recursive(child_node, subtree)
-        return tree
-
-    def _text(self, node: Node) -> str:
-        text_width = self.termwidth - 30
-        text = node.text.replace("\n", " ")
-        text = f"{node.index}: {text}"
-        if len(text) > text_width:
-            text = text[:text_width] + " ..."
-        return text
-
 
 def path_with_current(ctx):
     Console().clear()
-    ctx.obj.tree.legend()
-    print(ctx.obj.tree._get_repr())
+    ctx.obj.tree.index.index_struct.legend()
+    print(ctx.obj.tree.index.index_struct)
     if not ctx.obj.tree.index.path:
         return
     path = ctx.obj.tree.index.path
@@ -248,7 +181,7 @@ def display(
         print(ctx.obj.tree._get_repr())
 
     if type in ["a", "all"]:
-        print(ctx.obj.tree.get_full_repr())
+        print(ctx.obj.tree.index.index_struct.get_full_repr())
         return
 
     if type in ["c", "context"]:
@@ -314,7 +247,7 @@ def send(
 
     params = deepcopy(ctx.obj.tree.params)
     params["prompt"] = prompt
-    responses, choice = ctx.obj.simple_gen(params)
+    responses, choice = ctx.obj.simple_gen(ctx.obj.config, params)
     if len(responses) == 1:
         response = ctx.obj.templater.out(responses[0])
         ctx.obj.tree.extend(response)
@@ -342,7 +275,7 @@ def push(ctx: Context):
 
     params = deepcopy(ctx.obj.tree.params)
     params["prompt"] = prompt
-    responses, choice = ctx.obj.simple_gen(params)
+    responses, choice = ctx.obj.simple_gen(ctx.obj.config, params)
     if len(responses) == 1:
         response = ctx.obj.templater.out(responses[0])
         ctx.obj.tree.extend(response)

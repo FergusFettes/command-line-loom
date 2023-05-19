@@ -262,6 +262,17 @@ class IndexGraph(IndexStruct):
         print(self._get_repr())
         return ""
 
+    def get_full_repr(self, summaries=False) -> str:
+        uber_root = Node(
+            index=-1,
+            text="(displaying all nodes)",
+            child_indices=[i for i in self.index.index_struct.root_nodes.keys()],
+            node_info={},
+        )
+        self.legend()
+        self._root_info()
+        return self._get_repr(uber_root)
+
     def _get_repr(self, node: Optional[Node] = None) -> str:
         if node is None:
             checked_out = [

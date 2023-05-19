@@ -249,7 +249,10 @@ def send(
 ):
     """(s) Adds a new message to the chain and sends it all."""
     _append(ctx, msg)
+    _send(ctx)
 
+
+def _send(ctx):
     prompt = ctx.obj.tree.prompt
     prompt = ctx.obj.templater.prompt(prompt)
 
@@ -279,28 +282,7 @@ def send(
 @cli.command(name="pu", hidden=True)
 def push(ctx: Context):
     """(pu) sends the tree with no new message."""
-
-    prompt = ctx.obj.tree.prompt
-    prompt = ctx.obj.templater.prompt(prompt)
-
-    params = deepcopy(ctx.obj.tree.params)
-    params["prompt"] = prompt
-    responses, choice = ctx.obj.simple_gen(ctx.obj.config, params)
-    if len(responses) == 1:
-        response = ctx.obj.templater.out(responses[0])
-        ctx.obj.tree.extend(response)
-    else:
-        for response in responses.values():
-            response = ctx.obj.templater.out(response)
-            ctx.obj.tree.insert(response)
-
-    if choice is not None:
-        index = len(responses) - choice
-        node_indexes = list(ctx.obj.tree.index.index_struct.all_nodes.keys())
-        ctx.obj.tree.index.checkout(node_indexes[-index])
-    ctx.obj.tree.save()
-
-    path_with_current(ctx)
+    _send(ctx)
 
 
 @cli.command()
@@ -423,6 +405,8 @@ def dump(ctx: Context):
         ctx.obj.tree.index.cherry_pick(ids)
     elif choice in ["d", "delete"]:
         ctx.obj.tree.index.delete(ids)
+
+    path_with_current(ctx)
 
 
 # @staticmethod

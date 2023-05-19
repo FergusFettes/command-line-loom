@@ -117,6 +117,8 @@ class LoomIndex:
 
     def delete(self, identifiers: List[Union[int, str]]) -> None:
         """Delete a list of nodes in the index."""
+        if not isinstance(identifiers, list):
+            identifiers = [identifiers]
         nodes = []
         for identifier in identifiers:
             if identifier in self.tags.keys():

@@ -50,10 +50,8 @@ class Config:
         "append": False,
         "backup_path": "/tmp/cll/",
         "templater": {
-            "in_postfix": "\n",
-            "out_postfix": "\n",
-            "in_prefix": "Human: ",
-            "out_prefix": "GPT:",
+            "in_prefix": "\nHuman: ",
+            "out_prefix": "\nGPT:",
             "template": True,
             "template_path": "~/.config/cll/templates",
             "template_file": "assist.j2",

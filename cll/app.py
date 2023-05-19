@@ -194,8 +194,8 @@ def _print(ctx: Context):
 @cli.command(name="s", hidden=True)
 def save(ctx: Context):
     "(s) Save the current config to the config file."
-    ctx.obj.config._dict["engine_params"] = ctx.obj.tree.params
-    Config.save_openai_config(ctx.obj.config._dict)
+    ctx.obj.openai_config["engine_params"] = ctx.obj.tree.params
+    Config.save_openai_config(ctx.obj.openai_config)
     print("Saved config.")
 
 
@@ -207,7 +207,8 @@ def update(
     value: Annotated[Optional[str], Argument()] = None,
     kv: Annotated[Optional[str], Argument()] = None,
 ):
-    "(u) Update a config value, or set of values. (kv in the form of 'name1=value1,name2=value2')"
+    "(u) Update a config value, or set of values. (kv in the form of 'name1=value1,name2=value2'). "
+    "You can also just type 'name value' without 'u' to update a single value."
     if kv:
         updates = kv.split(",")
         for kv in updates:

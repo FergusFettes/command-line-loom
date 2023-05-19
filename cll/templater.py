@@ -115,8 +115,8 @@ def _print(ctx: Context):
 def save(ctx: Context):
     "(s) Save the current config to the config file."
     config = ctx.obj.templater.config
-    config["templater"] = ctx.obj.templater.template_config
-    Config.save_config(ctx.obj.templater.config)
+    config._dict["templater"] = ctx.obj.templater.template_config
+    config.save()
 
 
 @cli.command()

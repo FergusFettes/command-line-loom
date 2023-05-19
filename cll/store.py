@@ -70,6 +70,7 @@ def file(
     list: bool = False,
     dump: bool = False,
 ):
+    """Manages the chat file. If you want to create an entirely new tree, do it here."""
     config = ctx.obj.config
     config.check_file(toggle, default_file, config)
     if list:

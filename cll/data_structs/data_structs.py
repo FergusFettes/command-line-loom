@@ -72,18 +72,28 @@ class IndexGraph(IndexStruct):
         return []
 
     @property
-    def path_formatted(self) -> List[Node]:
+    def path_formatted(self) -> str:
         """Path with prompts."""
         return "".join([str(node) for node in self.path])
 
     @property
-    def path_str(self) -> List[Node]:
+    def path_str(self) -> str:
         """Path purely as str."""
         return "".join([node.text for node in self.path])
 
     @property
     def path_indices(self) -> List[int]:
         return [node.index for node in self.path]
+
+    @property
+    def path_formatted_with_index(self) -> List[str]:
+        """Path with prompts."""
+        return [f"{node.index}: {str(node)}".replace("\r", " ").replace("\n", "") for node in self.path]
+
+    @property
+    def active_tree_with_index(self) -> List[str]:
+        """Path with prompts."""
+        return [f"{node.index}: {node.text}".replace("\r", " ").replace("\n", "") for node in self.active_tree.values()]
 
     def add_node(self, node: Node) -> None:
         """Add a node."""

@@ -1,6 +1,6 @@
+import iterfzf
 from copy import deepcopy
 from dataclasses import dataclass
-# from functools import partial
 from pathlib import Path
 from typing import List, Optional
 
@@ -56,11 +56,11 @@ class Tree:
     def prompt(self):
         return self.index.path_formatted
 
-    def input(self, prompt):
-        self.extend(prompt)
+    def input(self, node):
+        self.extend(node, save=True)
 
-    def output(self, prompt):
-        self.extend(prompt, save=True)
+    def output(self, node):
+        self.extend(node, save=True)
 
     def extend(self, response, save=False):
         self.index.extend(response)
@@ -236,9 +236,9 @@ def display_tree(ctx: Context):
 def _append(ctx, msg):
     if isinstance(msg, tuple) or isinstance(msg, list):
         msg = " ".join(msg)
-    msg = ctx.obj.templater.in_(msg)
-    ctx.obj.tree.input(msg)
-    ctx.obj.tree.save()
+    node = ctx.obj.tree.index._create_node(msg)
+    node = ctx.obj.templater.in_(node)
+    ctx.obj.tree.input(node)
 
 
 @cli.command()
@@ -257,10 +257,12 @@ def send(
     params["prompt"] = prompt
     responses, choice = ctx.obj.simple_gen(ctx.obj.config, params)
     if len(responses) == 1:
-        response = ctx.obj.templater.out(responses[0])
+        response = ctx.obj.tree.index._create_node(responses[0])
+        response = ctx.obj.templater.out(response)
         ctx.obj.tree.extend(response)
     else:
         for response in responses.values():
+            response = ctx.obj.tree.index._create_node(response)
             response = ctx.obj.templater.out(response)
             ctx.obj.tree.insert(response)
 
@@ -395,6 +397,34 @@ def cherry_pick(ctx: Context, indexes: str):
     "(cp) Copy nodes onto the current branch (can be indexes or tags, space separated)"
     indexes = [int(index) if index.isdigit() else index for index in indexes.split(" ")]
     ctx.obj.tree.index.cherry_pick(indexes)
+
+
+@cli.command()
+def dump(ctx: Context):
+    "Dump nodes into a fuzzy finder"
+    selection = iterfzf.iterfzf(ctx.obj.tree.index.index_struct.active_tree_with_index, multi=True)
+    if selection is None:
+        return
+    ids = [int(index.split(":")[0]) for index in selection]
+    print("\n".join(selection))
+    choice = click.prompt(
+        f"You selected {ids}, what do you want to do?\n"
+        "\t(edit) dump the nodes into one file and open it in an editor\n"
+        "\t(cherry pick) copy the nodes onto the current branch\n"
+        "\t(delete) delete the nodes\n"
+        "\t(cancel)",
+        type=click.Choice(["edit", "cherry pick", "delete", "cancel", "e", "cp", "d", "c"]),
+    )
+    if choice in ["e", "edit"]:
+        text = "\n".join([ctx.obj.tree.index.index_struct.all_nodes[id].text for id in ids])
+        output = click.edit(text)
+        if output is None:
+            return
+        ctx.obj.tree.extend(output)
+    elif choice in ["cp", "cherry pick"]:
+        ctx.obj.tree.index.cherry_pick(ids)
+    elif choice in ["d", "delete"]:
+        ctx.obj.tree.index.delete(ids)
 
 
 # @staticmethod

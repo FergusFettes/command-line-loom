@@ -47,9 +47,10 @@ class Templater:
     def template_path(self, value):
         self.template_config["template_file"] = str(value)
 
-    def in_(self, message):
+    def in_(self, node):
         in_prefix = self.template_config["in_prefix"] or ""
-        return in_prefix + message
+        node.prefix = in_prefix
+        return node
 
     def prompt(self, prompt):
         out_prefix = self.template_config["out_prefix"] or ""
@@ -63,9 +64,10 @@ class Templater:
         template = Path(self.template_file).read_text()
         return jinja2.Template(template).render(**args)
 
-    def out(self, message):
+    def out(self, node):
         out_prefix = self.template_config["out_prefix"] or ""
-        return out_prefix + message
+        node.prefix = out_prefix
+        return node
 
     def save(self):
         self.config._dict["templater"] = self.template_config

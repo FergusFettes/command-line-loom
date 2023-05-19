@@ -1,8 +1,10 @@
+import subprocess
+import datetime
 import json
 from typing import Any, Dict, Optional, Sequence, List, Union
+from pathlib import Path
 
 from .data_structs import IndexGraph, Node
-from llama_index.readers.schema.base import Document
 from llama_index.schema import BaseDocument
 
 
@@ -112,6 +114,20 @@ class LoomIndex:
             nodes.append(node)
         for node in nodes:
             self.extend(node)
+
+    def delete(self, identifiers: List[Union[int, str]]) -> None:
+        """Delete a list of nodes in the index."""
+        nodes = []
+        for identifier in identifiers:
+            if identifier in self.tags.keys():
+                node = self.index_struct.all_nodes[self.tags[identifier]]
+            else:
+                node = self.index_struct.get_node(identifier)
+            nodes.append(node)
+        for node in nodes:
+            del self.index_struct.all_nodes[node.index]
+            if node.index in self.index_struct._root_nodes:
+                self.index_struct._root_nodes.remove(node.index)
 
     def clear_checkout(self) -> None:
         """Clear checkout."""

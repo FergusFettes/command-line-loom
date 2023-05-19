@@ -116,7 +116,7 @@ cli = make_typer_shell(
 )
 
 
-@cli.command()
+@cli.command(hidden=True)
 def default(ctx: Context, line: str):
     """Default command"""
     ctx.invoke(send, ctx=ctx, msg=line.split(" "))

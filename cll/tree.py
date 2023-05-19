@@ -12,7 +12,7 @@ from rich.panel import Panel
 from typer import Argument, Context
 from typing_extensions import Annotated
 
-from .typer_shell import make_typer_shell
+from typer_shell import make_typer_shell
 
 
 @dataclass

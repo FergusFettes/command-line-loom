@@ -10,10 +10,10 @@ import tiktoken
 import typer
 import yaml
 from rich import print
-from typer import Argument, Context
+from typer import Argument, Context, get_app_dir
 from typing_extensions import Annotated
 
-from .typer_shell import make_typer_shell
+from typer_shell import make_typer_shell
 
 file_path = Path("/tmp/cll/")
 file_path.mkdir(parents=True, exist_ok=True)
@@ -185,16 +185,6 @@ class Config:
         dict.update({key: value})
 
     @staticmethod
-    def prepare_engine_params(params):
-        """Prepare options for the OpenAI API."""
-        params = {k: v for k, v in params.items() if v is not None}
-
-        params["max_tokens"] = Config.model_tokens.get(params["model"], 2048)
-        if "number" in params:
-            params["n"] = params.pop("number")
-        return params
-
-    @staticmethod
     def check_file(toggle, default, config):
         if toggle:
             config._dict["file"] = not config._dict["file"]
@@ -211,7 +201,10 @@ class Config:
             print("File mode is off.")
 
 
-cli = make_typer_shell(prompt="📜: ", intro="Welcome to the Config! Type help or ? to list commands.")
+cli = make_typer_shell(
+    prompt="📜: ",
+    intro="Welcome to the Config! Type help or ? to list commands."
+)
 
 
 @cli.command()

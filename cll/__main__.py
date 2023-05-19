@@ -7,7 +7,7 @@ from cll.store import cli as store_cli
 from cll.templater import cli as templater_cli
 from cll.tree import cli as tree_cli
 
-from .typer_shell import make_typer_shell
+from typer_shell import make_typer_shell
 
 main = make_typer_shell(
     prompt="🧵: ",

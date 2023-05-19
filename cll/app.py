@@ -17,7 +17,7 @@ from cll.config import Config
 from cll.io import IO
 from cll.store import Store
 from cll.templater import Templater
-from cll.typer_shell import make_typer_shell
+from typer_shell import make_typer_shell
 
 
 @dataclass
@@ -166,23 +166,23 @@ class OAIGen:
         live.update(table)
 
 
-def default(ctx: Context, args: str):
-    """Default command"""
-    print("default doesn't work :(")
-    # args = args.split(" ")
-    # if args[0] in ctx.obj.tree.params:
-    #     Config._update(args[0], args[1], ctx.obj.tree.params)
-    # else:
-    #     print(
-    #         f"[red]Unknown command/param {args[0]}[/red]. "
-    #         "If you need to add it to the dict, use 'update'."
-    #     )
-    # print(ctx.obj.tree.params)
-
-
 cli = make_typer_shell(
-    prompt="📃: ", intro="Welcome to the Model Config! Type help or ? to list commands.", default=default
+    prompt="📃: ", intro="Welcome to the Model Config! Type help or ? to list commands.", default="default"
 )
+
+
+@cli.command()
+def default(ctx: Context, line: str):
+    """Default command"""
+    args = line.split(" ")
+    if args[0] in ctx.obj.tree.params:
+        Config._update(args[0], args[1], ctx.obj.tree.params)
+    else:
+        print(
+            f"[red]Unknown command/param {args[0]}[/red]. "
+            "If you need to add it to the dict, use 'update'."
+        )
+    print(ctx.obj.tree.params)
 
 
 @cli.command(name="print")

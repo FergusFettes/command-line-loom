@@ -9,7 +9,7 @@ from typing_extensions import Annotated
 
 from cll.tree import DummyTree, Tree
 
-from .typer_shell import make_typer_shell
+from typer_shell import make_typer_shell
 
 
 @dataclass

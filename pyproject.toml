@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "command-line-loom"
-version = "0.0.2"
+version = "0.0.3"
 description = ""
 authors = ["fergus <fergusfettes@gmail.com>"]
 homepage = "https://github.com/fergusfettes/command-line-loom"

@@ -129,31 +129,19 @@ class LoomIndex:
         return self.__str__()
 
     def __str__(self) -> str:
-        path = self.path
-        return "\n".join([node.text for node in path])
+        self.path_formatted
+
+    @property
+    def path_formatted(self) -> List[Node]:
+        return self.index_struct.path_formatted
+
+    @property
+    def path_str(self) -> List[Node]:
+        return self.index_struct.path_str
 
     @property
     def path(self) -> List[Node]:
-        """Get the current path.
-
-        Returns:
-            List[Node]: The current path.
-        """
-        for root in self.index_struct.root_nodes.keys():
-            # The root nodes are not a copy of the instances in all_nodes
-            # so they don't know if they are checked out.
-            node = self.index_struct.all_nodes[root]
-            if node.node_info.get("checked_out", False):
-                return self._get_checked_out_path({node.index: node}, [])
-        return []
-
-    def _get_checked_out_path(self, nodes: List[Node], path: List[Node]) -> List[Node]:
-        """Get path from root to leaf via checked out nodes."""
-        for node in nodes.values():
-            if node.node_info.get('checked_out', False):
-                path.append(node)
-                return self._get_checked_out_path(self.index_struct.get_children(node), path)
-        return path
+        return self.index_struct.path
 
     def step(self, direction: str) -> None:
         """
@@ -174,6 +162,7 @@ class LoomIndex:
             parent = self.index_struct.get_parent(self.path[-1])
             if not parent:
                 return
+            self.checkout_path(parent)
         elif direction == "down":
             children = self.index_struct.get_children(self.path[-1])
             if not children:
@@ -213,13 +202,6 @@ class LoomIndex:
             self.index_struct.insert_under_parent(node, current_node)
         else:
             self.index_struct.add_root_node(node)
-
-    def add_context(self, context: str, node: Optional[Node] = None) -> None:
-        """Add a global context."""
-        node = node or self.path[0]
-        context = Document(text=context)
-        node.node_info["context"] = context.doc_id
-        self.docstore.add_documents([context])
 
     def extend(self, document: Union[str, Node]) -> None:
         self._insert(document)

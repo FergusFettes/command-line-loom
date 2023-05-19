@@ -166,9 +166,7 @@ class OAIGen:
         live.update(table)
 
 
-cli = make_typer_shell(
-    prompt="📃: ", intro="Welcome to the Model Config! Type help or ? to list commands.", default="default"
-)
+cli = make_typer_shell(prompt="📃: ", intro="Welcome to the Model Config! Type help or ? to list commands.")
 
 
 @cli.command()

@@ -9,7 +9,7 @@ from cll.data_structs import LoomIndex
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
-from typer import Argument, Context
+from typer import Argument, Context, get_app_dir
 from typing_extensions import Annotated
 
 from typer_shell import make_typer_shell
@@ -36,7 +36,6 @@ class Tree:
     index: Optional[LoomIndex] = None
     params: Optional[dict] = None
     name: Optional[str] = None
-    join: str = ""
 
     def __post_init__(self):
         self.file = Path(self.file)
@@ -49,20 +48,13 @@ class Tree:
 
     @property
     def prompt_context(self):
-        path = self.index.path
-        prompt = self.index.context + "\n" + f"{self.join}".join([node.text for node in path])
+        path = self.index.path_formatted
+        prompt = self.index.context + "\n" + path
         return prompt
 
     @property
     def prompt(self):
-        return self._prompt()
-
-    def _prompt(self, n=None):
-        if n:
-            path = self.index.path[:n]
-        else:
-            path = self.index.path
-        return f"{self.join}".join([node.text for node in path])
+        return self.index.path_formatted
 
     def input(self, prompt):
         self.extend(prompt)
@@ -88,30 +80,46 @@ class Tree:
 
 
 def path_with_current(ctx):
+    index = ctx.obj.tree.index
     Console().clear()
-    ctx.obj.tree.index.index_struct.legend()
-    print(ctx.obj.tree.index.index_struct)
-    if not ctx.obj.tree.index.path:
+
+    name = ctx.command.name
+    if name not in ctx.obj.params_groups:
+        if ctx.parent:
+            name = ctx.parent.command.name
+    if name not in ctx.obj.params_groups:
+        print("Cant find params!")
+    else:
+        params = ctx.obj.params_groups[name]['params']
+        index.index_struct.path_neighborhood = params["path_neighborhood"]
+        index.index_struct.head_neighborhood = params["head_neighborhood"]
+
+    index.index_struct.legend()
+    print(index.index_struct._get_repr())
+    path = index.index_struct.path
+    if not len(path):
         return
-    path = ctx.obj.tree.index.path
-    path_str = ctx.obj.tree._prompt(-1)
-    path_str += ctx.obj.tree.join
+    path_str = ""
+    if len(path) > 1:
+        path_str += "".join([str(node) for node in path[:-1]])
     path_str += "[bold red]"
-    path_str += path[-1].text
+    path_str += str(path[-1])
     path_str += "[/bold red]"
     print(Panel.fit(path_str, title="Prompt", border_style="bold magenta"))
-
-
-def default(msg):
-    """Default command"""
-    print("Default doesn't work yet :/.")
 
 
 cli = make_typer_shell(
     prompt="🌲: ",
     launch=path_with_current,
-    default=default,
+    params={"path_neighborhood": 3, "head_neighborhood": 10},
+    params_path=Path(get_app_dir("cll")) / "tree.yaml"
 )
+
+
+@cli.command()
+def default(ctx: Context, line: str):
+    """Default command"""
+    ctx.invoke(send, ctx=ctx, msg=line.split(" "))
 
 
 @cli.command(hidden=True)
@@ -177,7 +185,7 @@ def display(
     """
     Console().clear()
     if type in ["t", "tree"]:
-        ctx.obj.tree.legend()
+        ctx.obj.tree.index.index_struct.legend()
         print(ctx.obj.tree._get_repr())
 
     if type in ["a", "all"]:
@@ -314,7 +322,7 @@ def append(
 
 
 @cli.command()
-def save(ctx: Context):
+def save_tree(ctx: Context):
     """Save the current tree"""
     ctx.obj.tree.save()
 

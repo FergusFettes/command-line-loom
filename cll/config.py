@@ -10,7 +10,7 @@ import tiktoken
 import typer
 import yaml
 from rich import print
-from typer import Argument, Context, get_app_dir
+from typer import Argument, Context
 from typing_extensions import Annotated
 
 from typer_shell import make_typer_shell

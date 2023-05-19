@@ -378,17 +378,15 @@ def edit_prompt(ctx: Context, index: Annotated[Optional[str], Argument()] = None
     click.edit(input)
 
 
-@cli.command()
-@cli.command(name="del", hidden=True)
-def delete(ctx: Context, indexes: Annotated[Optional[str], Argument()] = None):
-    "(del) delete some nodes (space separated) (last one by default)"
-    if not indexes:
-        indexes = [ctx.obj.tree.index.path[-1].index]
-    else:
-        indexes = indexes.split(" ")
-
-    for index in indexes:
-        ctx.obj.tree.index.delete(int(index))
+# @cli.command()
+# @cli.command(name="del", hidden=True)
+# def delete(ctx: Context, indexes: Annotated[Optional[str], Argument()] = None):
+#     "(del) delete some nodes (space separated) (last one by default)"
+#     if not indexes:
+#         indexes = [ctx.obj.tree.index.path[-1].index]
+#     else:
+#         indexes = indexes.split(" ")
+#     ctx.obj.tree.index.delete(indexes)
 
 
 @cli.command()

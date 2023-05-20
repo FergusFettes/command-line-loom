@@ -1936,14 +1936,14 @@ test = ["black (>=22.3.0,<23.0.0)", "coverage (>=6.2,<7.0)", "isort (>=5.0.6,<6.
 
 [[package]]
 name = "typer-shell"
-version = "0.1.4"
+version = "0.1.6"
 description = "A shell for typer apps with autocompletion and history"
 category = "main"
 optional = false
 python-versions = ">=3.8.1,<3.12"
 files = [
-    {file = "typer_shell-0.1.4-py3-none-any.whl", hash = "sha256:15c3e97c7a798c4e950e36cd30de1c1ad76cd6d54476fb66cde0b3e2dcef4d00"},
-    {file = "typer_shell-0.1.4.tar.gz", hash = "sha256:2a2efbe11d79dac6d320ab9ed1351d793aa053cae266bec63638d85713fa65ec"},
+    {file = "typer_shell-0.1.6-py3-none-any.whl", hash = "sha256:c6cdacfed3941105c4948e823c291460479c78e0cd88debb6647efb8d4e3969c"},
+    {file = "typer_shell-0.1.6.tar.gz", hash = "sha256:136f073f69af946e88b29f32d71e421d9f9a629263cd397b3155f6ce6f10606d"},
 ]
 
 [package.dependencies]
@@ -2114,4 +2114,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<3.12"
-content-hash = "b4db05b05364e26cb900784222373ebc3325095fba16f946b756b0e17531413d"
+content-hash = "f0c599c9c48d26e82af5bf643a674ebe1429bef4584cde697bbeb19ee53fa0c0"

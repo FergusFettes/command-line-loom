@@ -136,6 +136,7 @@ def set_encoder(ctx, string=None):
         string = "none"
     ctx.obj.tree.encoder = Encoder.get_encoder(string)
     ctx.obj.tree.decoder = Encoder.get_decoder(string)
+
     if Encoder._get_encoder(string) == Encoder.none:
         string = "none"
     params = get_params(ctx)

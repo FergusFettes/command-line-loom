@@ -75,7 +75,7 @@ class Config:
         "model": "gpt-3.5-turbo",
         "n": 1,
         "presence_penalty": 0,
-        "stop": None,
+        "stop": ["I'm sorry", "As an AI"],
         "temperature": 0.9,
         "top_p": 1,
         "stream": True,

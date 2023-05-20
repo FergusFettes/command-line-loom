@@ -1,9 +1,10 @@
-import iterfzf
+import binascii
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+import iterfzf
 import click
 from cll.data_structs import LoomIndex
 from rich import print
@@ -13,6 +14,7 @@ from typer import Argument, Context, get_app_dir
 from typing_extensions import Annotated
 
 from typer_shell import make_typer_shell
+from .encoder import Encoder
 
 
 @dataclass
@@ -36,6 +38,8 @@ class Tree:
     index: Optional[LoomIndex] = None
     params: Optional[dict] = None
     name: Optional[str] = None
+    encoder: Encoder = Encoder(Encoder.none)
+    decoder: Encoder = Encoder(Encoder.none)
 
     def __post_init__(self):
         self.file = Path(self.file)
@@ -54,7 +58,17 @@ class Tree:
 
     @property
     def prompt(self):
-        return self.index.path_formatted
+        if self.encoder.callback == Encoder.none:
+            return self.index.path_formatted
+        return self._prompt
+
+    @property
+    def _prompt(self):
+        prompt = ""
+        for node in self.index.index_struct.path_nodes:
+            prompt += node.prefix
+            prompt += self.encoder(node.text)
+        return prompt
 
     def input(self, node):
         self.extend(node, save=True)
@@ -83,14 +97,8 @@ def path_with_current(ctx):
     index = ctx.obj.tree.index
     Console().clear()
 
-    name = ctx.command.name
-    if name not in ctx.obj.params_groups:
-        if ctx.parent:
-            name = ctx.parent.command.name
-    if name not in ctx.obj.params_groups:
-        print("Cant find params!")
-    else:
-        params = ctx.obj.params_groups[name]['params']
+    params = get_params(ctx)
+    if params:
         index.index_struct.path_neighborhood = params["path_neighborhood"]
         index.index_struct.head_neighborhood = params["head_neighborhood"]
 
@@ -108,9 +116,38 @@ def path_with_current(ctx):
     print(Panel.fit(path_str, title="Prompt", border_style="bold magenta"))
 
 
+def get_params(ctx):
+    name = ctx.command.name
+    if name not in ctx.obj.params_groups:
+        if ctx.parent:
+            name = ctx.parent.command.name
+    if name not in ctx.obj.params_groups:
+        print("Cant find params!")
+    else:
+        params = ctx.obj.params_groups[name]['params']
+        return params
+
+
+def set_encoder(ctx, string=None):
+    params = get_params(ctx)
+    if not string and params:
+        string = params.get("encoder", "none")
+    if not string:
+        string = "none"
+    ctx.obj.tree.encoder = Encoder.get_encoder(string)
+    ctx.obj.tree.decoder = Encoder.get_decoder(string)
+    if Encoder._get_encoder(string) == Encoder.none:
+        string = "none"
+    params = get_params(ctx)
+    if params:
+        params["encoder"] = string
+    print(params)
+    path_with_current(ctx)
+
+
 cli = make_typer_shell(
     prompt="🌲: ",
-    launch=path_with_current,
+    launch=set_encoder,
     params={"path_neighborhood": 3, "head_neighborhood": 10},
     params_path=Path(get_app_dir("cll")) / "tree.yaml"
 )
@@ -119,6 +156,9 @@ cli = make_typer_shell(
 @cli.command(hidden=True)
 def default(ctx: Context, line: str):
     """Default command"""
+    if len(line) < 20:
+        print("Ill assume you didn't mean to send that. If you do, use 'send X'. (Below 20 chars.)")
+        return
     ctx.invoke(send, ctx=ctx, msg=line.split(" "))
 
 
@@ -162,6 +202,49 @@ def navigate(ctx: Context, direction: str, count: int = 1):
     "View may be rotated 90 degrees."
     for _ in range(count):
         ctx.obj.tree.index.step(direction)
+    path_with_current(ctx)
+
+
+@cli.command()
+@cli.command(name="en", hidden=True)
+@cli.command(name="encoding", hidden=True)
+def encoder(ctx: Context, encoder: str):
+    '(en) Set the encoder to use. Text will be encoded and decoded before being sent.\n'
+    'Available encoders:\n'
+    '\t"none": no encoding\n'
+    '\t"base64": base64 encoding\n'
+    '\t"rot13": rot13 encoding\n'
+    '\t"caesar X": caesar encoding, rot by X (rot13 == "ceaser 13")\n'
+    set_encoder(ctx, encoder)
+
+
+@cli.command()
+@cli.command(name="re", hidden=True)
+def reencode(ctx: Context, index: Annotated[Optional[str], Argument()] = None):
+    "(re) Reencode the current node."
+    if not index:
+        index = ctx.obj.tree.index.path[-1].index
+    index = int(index)
+
+    node = ctx.obj.tree.index.index_struct.all_nodes[index]
+    node.text = ctx.obj.tree.encoder(node.text)
+    ctx.obj.tree.index.index_struct.all_nodes[index] = node
+    ctx.obj.tree.save()
+    path_with_current(ctx)
+
+
+@cli.command()
+@cli.command(name="de", hidden=True)
+def redecode(ctx: Context, index: Annotated[Optional[str], Argument()] = None):
+    "(de) Reencode the current node backwards."
+    if not index:
+        index = ctx.obj.tree.index.path[-1].index
+    index = int(index)
+
+    node = ctx.obj.tree.index.index_struct.all_nodes[index]
+    node.text = ctx.obj.tree.decoder(node.text)
+    ctx.obj.tree.index.index_struct.all_nodes[index] = node
+    ctx.obj.tree.save()
     path_with_current(ctx)
 
 
@@ -253,21 +336,31 @@ def send(
 
 
 def _send(ctx):
+    # Encoding happens in the tree
     prompt = ctx.obj.tree.prompt
-    prompt = ctx.obj.templater.prompt(prompt)
-
     params = deepcopy(ctx.obj.tree.params)
+
+    # Then templating (so template stays in english)
+    prompt = ctx.obj.templater.prompt(prompt)
     params["prompt"] = prompt
+
     responses, choice = ctx.obj.simple_gen(ctx.obj.config, params)
     if len(responses) == 1:
-        response = ctx.obj.tree.index._create_node(responses[0])
-        response = ctx.obj.templater.out(response)
-        ctx.obj.tree.extend(response)
+        callback = ctx.obj.tree.extend
     else:
-        for response in responses.values():
-            response = ctx.obj.tree.index._create_node(response)
-            response = ctx.obj.templater.out(response)
-            ctx.obj.tree.insert(response)
+        callback = ctx.obj.tree.insert
+
+    for response in responses.values():
+        # Decode the response first
+        try:
+            response = ctx.obj.tree.decoder(response)
+        except (binascii.Error, UnicodeDecodeError):
+            # Probably the response wasn't encoded?
+            pass
+        response = ctx.obj.tree.index._create_node(response)
+        # Then template
+        response = ctx.obj.templater.out(response)
+        callback(response)
 
     if choice is not None:
         index = len(responses) - choice
@@ -280,8 +373,9 @@ def _send(ctx):
 
 @cli.command()
 @cli.command(name="pu", hidden=True)
+@cli.command(name="r", hidden=True)
 def push(ctx: Context):
-    """(pu) sends the tree with no new message."""
+    """(pu, r) sends the tree with no new message."""
     _send(ctx)
 
 
@@ -356,7 +450,10 @@ def edit(ctx: Context, index: Annotated[Optional[str], Argument()] = None):
 @cli.command(name="prompt", hidden=True)
 def edit_prompt(ctx: Context, index: Annotated[Optional[str], Argument()] = None):
     """(prompt) Export the full prompt to an editor for saving."""
+    prev_encoder = ctx.obj.tree.encoder
+    ctx.obj.tree.encoder = Encoder.get_encoder("none")
     input = str(ctx.obj.tree.prompt)
+    ctx.obj.tree.encoder = prev_encoder
     click.edit(input)
 
 

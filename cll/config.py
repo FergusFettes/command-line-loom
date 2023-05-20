@@ -1,3 +1,4 @@
+import os
 import datetime
 import logging
 from dataclasses import dataclass, field
@@ -18,18 +19,28 @@ from typer_shell import make_typer_shell
 file_path = Path("/tmp/cll/")
 file_path.mkdir(parents=True, exist_ok=True)
 
-# log_path = file_path / "logs"
-# log_path.mkdir(parents=True, exist_ok=True)
+log_path = file_path / "logs"
+log_path.mkdir(parents=True, exist_ok=True)
 
 timestamp = datetime.datetime.now().replace(microsecond=0).isoformat()
-# logfile = log_path / f"{timestamp}.log"
+logfile = log_path / f"{timestamp}.log"
 
-logging.basicConfig(
-    # filename=logfile,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.INFO,
-)
+DEBUG = os.environ.get("DEBUG", False)
+
+if DEBUG:
+    print("DEBUG MODE")
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.INFO,
+    )
+else:
+    logging.basicConfig(
+        filename=logfile,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.INFO,
+    )
 logger = logging.getLogger()
 
 

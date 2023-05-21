@@ -256,12 +256,15 @@ def encoder(
             "Lambdas are probably ceaser cypers correctly interpreted."
         )
         current_encoder = ctx.obj.tree.encoder.callback
+        last_encoder = "none"
         while True:
-            current_encoder_name = current_encoder.__name__
-            new_encoder = input(f"encoder [{current_encoder_name}]: ")
+            new_encoder_name = current_encoder.__name__
+            new_encoder = input(f"encoder [{new_encoder_name}]: ")
             if not new_encoder:
+                encoder = last_encoder
                 break
             current_encoder = Encoder._get_encoder(new_encoder)
+            last_encoder = new_encoder
 
     set_encoder(ctx, encoder)
     save_config(ctx)
@@ -559,13 +562,19 @@ def dump(ctx: Context):
     if selection is None:
         return
     ids = [int(index.split(":")[0]) for index in selection]
-    print("\n".join(selection))
+    text = "\n".join(selection)
+    print(Panel(
+        f"[bold magenta]Selected:[/bold magenta]\n{text}\n"
+        f"\n[bold magenta]What do you want to do with these nodes?[/bold magenta]\n"
+        "\t([bold red]edit, e[/bold red]) dump the nodes into one file and open it in an editor\n"
+        "\t([bold red]cherry pick, cp[/bold red]) copy the nodes onto the current branch\n"
+        "\t([bold red]delete, d[/bold red]) delete the nodes\n"
+        "\t([bold red]cancel, c[/bold red])",
+        title="Dump",
+        border_style="bold magenta",
+    ))
     choice = click.prompt(
-        f"You selected {ids}, what do you want to do?\n"
-        "\t(edit) dump the nodes into one file and open it in an editor\n"
-        "\t(cherry pick) copy the nodes onto the current branch\n"
-        "\t(delete) delete the nodes\n"
-        "\t(cancel)",
+        "Choice:",
         type=click.Choice(["edit", "cherry pick", "delete", "cancel", "e", "cp", "d", "c"]),
     )
     if choice in ["e", "edit"]:
@@ -573,7 +582,10 @@ def dump(ctx: Context):
         output = click.edit(text)
         if output is None:
             return
-        ctx.obj.tree.extend(output)
+        node_template = deepcopy(ctx.obj.tree.index.index_struct.all_nodes[ids[0]])
+        node_template.child_indices = set()
+        node_template.text = output
+        ctx.obj.tree.extend(node_template)
     elif choice in ["cp", "cherry pick"]:
         ctx.obj.tree.index.cherry_pick(ids)
     elif choice in ["d", "delete"]:

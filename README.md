@@ -24,6 +24,8 @@ poetry install
 
 Should be self-documenting in the interface. Just type 'help'.
 
+Some node manipulation: [vid](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)
+
 Watch this for more advanced usage: [vid](https://asciinema.org/a/tLpxm9FdW6gKdJztRnAPAOl7X).
 
 ## Configuration

@@ -121,3 +121,5 @@ class Encoder:
             number = int(parts[1])
             # Get the encoding function
             return lambda s: Encoder.caesar(s, -number)
+
+        return Encoder.none

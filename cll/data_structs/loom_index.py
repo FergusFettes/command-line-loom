@@ -1,8 +1,6 @@
-import subprocess
-import datetime
+from copy import deepcopy
 import json
 from typing import Any, Dict, Optional, Sequence, List, Union
-from pathlib import Path
 
 from .data_structs import IndexGraph, Node
 from llama_index.schema import BaseDocument
@@ -111,11 +109,52 @@ class LoomIndex:
                 node = self.index_struct.all_nodes[self.tags[identifier]]
             else:
                 node = self.index_struct.get_node(identifier)
-            nodes.append(node)
+            nodes.append(deepcopy(node))
+
         for node in nodes:
+            node.child_indices = set()
+            node.node_info.pop("checked_out", None)
+            node.index = len(self.index_struct.all_nodes)
             self.extend(node)
 
-    def delete(self, identifiers: List[Union[int, str]]) -> None:
+    def hoist(self, identifier: Union[int, str], target: Optional[Union[int, str]]) -> None:
+        """Hoist a node in the index."""
+        branch = self.identify(identifier)
+        target = self.identify(target)
+
+        if branch is None:
+            return
+
+        # Now copy the node and all its children
+        if target is None:
+            self.clear_checkout()
+        else:
+            self.checkout_path(target)
+        self.rebuild(branch)
+
+    def identify(self, identifier: Optional[Union[int, str]]) -> None:
+        if identifier is None:
+            return
+        if identifier in self.tags.keys():
+            return self.index_struct.all_nodes[self.tags[identifier]]
+        else:
+            return self.index_struct.get_node(identifier)
+
+    def rebuild(self, node: Node) -> None:
+        """Rebuild the index from a list of nodes."""
+        node.node_info.pop("checked_out", None)
+        node = deepcopy(node)
+        node.index = len(self.index_struct.all_nodes)
+        child_indices = node.child_indices
+        node.child_indices = set()
+        self.extend(node)
+        for child_id in child_indices:
+            child = self.index_struct.all_nodes[child_id]
+            node.child_indices.add(self.rebuild(child))
+            self.checkout(node.index)
+        return node.index
+
+    def delete(self, identifiers: List[Union[int, str]], all: bool = False) -> None:
         """Delete a list of nodes in the index."""
         if not isinstance(identifiers, list):
             identifiers = [identifiers]
@@ -127,9 +166,7 @@ class LoomIndex:
                 node = self.index_struct.get_node(identifier)
             nodes.append(node)
         for node in nodes:
-            del self.index_struct.all_nodes[node.index]
-            if node.index in self.index_struct._root_nodes:
-                self.index_struct._root_nodes.remove(node.index)
+            self.index_struct.delete(node, all=all)
 
     def clear_checkout(self) -> None:
         """Clear checkout."""
@@ -144,7 +181,7 @@ class LoomIndex:
         return self.index_struct._get_repr(node)
 
     def __repr__(self) -> str:
-        return self.__str__()
+        return self.__str__() or "No summary available."
 
     def __str__(self) -> str:
         self.path_formatted

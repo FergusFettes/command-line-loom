@@ -113,6 +113,34 @@ class IndexGraph(IndexStruct):
             )
         self._root_nodes.append(node.index)
 
+    def delete(self, node: Node, all: bool = False) -> None:
+        """Delete a node. If the node has children, reassign them to the parent, unless 'all' is set."""
+        parent = self.get_parent(node)
+        if not all:
+            self.foster(node, parent)
+        if node.index in self.root_nodes:
+            self._root_nodes.remove(node.index)
+        parent = self.get_parent(node)
+        if parent is not None:
+            parent.child_indices.remove(node.index)
+        if all:
+            for child in self.get_all_children(node).values():
+                del self.all_nodes[child.index]
+                print(f"Deleted node {child.index}.")
+        del self.all_nodes[node.index]
+        print(f"Deleted node {node.index}.")
+
+    def foster(self, parent: Node, new_parent: Optional[Node] = None) -> None:
+        """Foster the children of a node to a new parent. If no parent, make them root nodes."""
+        children = self.get_children(parent)
+        for child in children.values():
+            if new_parent is None:
+                self._root_nodes.append(child.index)
+            else:
+                new_parent.child_indices.add(child.index)
+        parent.child_indices = set()
+        print(f"Hoisted {[child.index for child in children.values()]} to {new_parent.index}")
+
     def get_children(self, parent_node: Optional[Node]) -> Dict[int, Node]:
         """Get nodes given indices."""
         if parent_node is None:
@@ -121,7 +149,7 @@ class IndexGraph(IndexStruct):
             return {i: self.all_nodes[i] for i in parent_node.child_indices}
 
     def get_all_children(self, parent_node: Optional[Node], all_children=None) -> Dict[int, Node]:
-        """Get all children."""
+        """Get all descendent nodes."""
         all_children = all_children or {}
         children = self.get_children(parent_node)
         for child_node in children.values():
@@ -206,15 +234,19 @@ class IndexGraph(IndexStruct):
             return path
         return self.get_path_to_root(parent_node, path)
 
-    def _get_graph(self) -> None:
+    def _get_graph(self, node: Optional[Node] = None) -> None:
+        if node is None:
+            node = self.all_nodes[self.active_root]
         g = nx.Graph()
 
         # add nodes
-        for node in self.active_tree.values():
+        active_nodes = self.get_all_children(node)
+        active_nodes.update({node.index: node})
+        for node in active_nodes.values():
             g.add_node(node.index)
 
         # add edges
-        for node in self.active_tree.values():
+        for node in active_nodes.values():
             children = self.get_children(node)
             for _, child in children.items():
                 g.add_edge(child.index, node.index)
@@ -222,8 +254,8 @@ class IndexGraph(IndexStruct):
         self.graph = g
         return self.graph
 
-    def _get_distances(self) -> None:
-        self._get_graph()
+    def _get_distances(self, node: Optional[Node] = None) -> None:
+        self._get_graph(node)
         self.distances = {}
         for u in self.graph.nodes:
             for v in self.graph.nodes:
@@ -235,7 +267,10 @@ class IndexGraph(IndexStruct):
             distance = min(distance, self.distances[tuple({index, query_index})])
         return distance
 
-    def close_node(self, query_index, head_index) -> Tuple[int, bool]:
+    def close_node(self, query_index, head_index: Optional[int] = None) -> Tuple[int, bool]:
+        if head_index is None:
+            return 0, True
+
         # Close to path?
         distance = self.get_distance_from_path(query_index)
         if distance < self.path_neighborhood:
@@ -262,19 +297,18 @@ class IndexGraph(IndexStruct):
         for root in self.root_nodes.values():
             leaves = self.get_leaves(root)
             children = self.get_all_children(root)
-            _str += f"{root.index}; ({len(leaves)}:{len(children)}):\t\t{root.text.splitlines()[0]}"
+            _str += f"{root.index}:\t(branches:{len(leaves)}, nodes:{len(children)}):\t{root.text.splitlines()[0]}"
             if self.all_nodes[root.index].node_info.get("checked_out", False):
                 _str += "\t\t<-- CURRENT_ROOT"
-        print(Panel(_str, title="Root Nodes"))
+            _str += "\n"
+        print(Panel(_str, title="Root Nodes", style="bold blue"))
 
     def legend(self) -> str:
         txt = (
             "checked out nodes are in [bold red]bold red[/bold red]\n"
             "other nodes are in [dim blue]dim blue[/dim blue]\n"
             "navigate with [magenta]hjkl[/magenta]\n"
-            "show the current prompt with [magenta]p[/magenta]\n"
             "show the tree with [magenta]t[/magenta]\n"
-            "(this will be the checked out path plus template)"
         )
         print(Panel.fit(txt, title="Legend", border_style="bold magenta"))
 
@@ -289,7 +323,7 @@ class IndexGraph(IndexStruct):
         self._root_info()
         return self._get_repr(uber_root)
 
-    def _get_repr(self, node: Optional[Node] = None) -> str:
+    def _get_repr(self, node: Optional[Node] = None, full: bool = True) -> str:
         if node is None:
             if self.path_indices:
                 node = self.all_nodes[self.path_indices[0]]
@@ -298,16 +332,18 @@ class IndexGraph(IndexStruct):
             else:
                 return
         tree = RichTree(self._text(node), style="bold red", guide_style="bold magenta")
-        self._get_distances()
+        self._get_distances(node)
         return self._get_repr_recursive(node, tree)
 
     def _get_repr_recursive(self, node: Optional[Node] = None, tree: Optional[RichTree] = None) -> str:
         nodes = self.get_children(node)
         for child_node in nodes.values():
-            distance, close = self.close_node(child_node.index, self.path_indices[-1])
+            distance, close = self.close_node(child_node.index, self.path_indices[-1] if len(self.path) else None)
             style = "dim blue" if distance else "bold red"
             if not close:
-                subtree = tree.add("...", style=style)
+                children = self.get_all_children(child_node)
+                no_children = len(children)
+                subtree = tree.add(f"... ({no_children})", style=style)
                 continue
             subtree = tree.add(self._text(child_node), style=style)
             self._get_repr_recursive(child_node, subtree)

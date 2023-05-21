@@ -205,7 +205,7 @@ class Config:
             config.save()
 
         if config._dict["file"]:
-            print(f"File mode is on. Using {config._dict['chat_name']} as the chat history file.")
+            print(f"File mode is on. Using '{config._dict['chat_name']}' as the chat history file.")
         else:
             print("File mode is off.")
 

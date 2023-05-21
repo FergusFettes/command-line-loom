@@ -529,7 +529,7 @@ def parse_indexes(indexes):
 @cli.command()
 @cli.command(name="del", hidden=True)
 def delete(ctx: Context, indexes: Annotated[Optional[str], Argument()] = None, all: bool = False):
-    "(del) delete some nodes (space separated) (last one by default)"
+    "(del) delete some nodes (space separated) (last one by default) (and subnodes if --all)"
     if not indexes:
         indexes = [ctx.obj.tree.index.path[-1].index]
     else:
@@ -549,7 +549,7 @@ def cherry_pick(ctx: Context, indexes: str):
 @cli.command()
 @cli.command(name="hh", hidden=True)
 def hoist(ctx: Context, target: Annotated[Optional[str], Argument()] = None):
-    "Copies the node and all downstreams to a new root."
+    "(hh) Copies the node and all downstreams to a new root (or to a target if specified)."
     index = ctx.obj.tree.index.path[-1].index
     ctx.obj.tree.index.hoist(index, target)
     path_with_current(ctx)

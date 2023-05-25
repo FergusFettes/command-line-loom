@@ -12,11 +12,10 @@ from rich.table import Table
 from typer import Context
 import tiktoken
 
-from cll.config import Config
-from cll.store import Store
 from cll.templater import Templater
+from cll.tree import Tree
 
-from typer_shell import get_params, IO
+from typer_shell import get_params, update, IO
 
 
 @dataclass
@@ -32,11 +31,8 @@ class App:
     }
 
     def __post_init__(self):
-        self.config = Config.check_config()
-        self.store = Store(config=self.config)
-        self.templater = Templater(config=self.config)
+        self.templater = Templater()
         self.io = IO
-        self.tree = self.store.load_file()
 
     @staticmethod
     def get_encoding(model):
@@ -70,9 +66,9 @@ class App:
 
     @staticmethod
     def max_tokens(params):
-        model_max = Config.model_tokens.get(params["model"], 2048)
+        model_max = App.model_tokens.get(params["model"], 2048)
 
-        encoding = Config.get_encoding(params.get("model", "gpt-3.5-turbo"))
+        encoding = App.get_encoding(params.get("model", "gpt-3.5-turbo"))
         request_total = params["max_tokens"] + len(encoding.encode(params["prompt"]))
 
         if request_total > model_max:
@@ -181,7 +177,7 @@ def default(ctx: Context, line: str):
     args = line.split(" ")
     params = get_params(ctx)
     if args[0] in params:
-        Config._update(args[0], args[1], params)
+        update(args[0], args[1], params)
     else:
         print(
             f"[red]Unknown command/param {args[0]}[/red]. "

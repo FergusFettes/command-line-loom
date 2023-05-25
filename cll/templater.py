@@ -1,5 +1,5 @@
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -12,8 +12,7 @@ from rich.table import Table
 from typer import Argument, Context
 from typing_extensions import Annotated
 
-from .config import Config
-from typer_shell import make_typer_shell
+from typer_shell import make_typer_shell, get_params
 
 import tttp
 
@@ -23,31 +22,6 @@ class Templater:
     """
     Templates are stored as editable files.
     """
-
-    config: Optional["Config"] = None  # type: ignore
-    template_config: dict = field(default_factory=dict)
-
-    def __post_init__(self):
-        if self.config:
-            self.template_config = self.config._dict["templater"]
-
-    @property
-    def template_file(self):
-        """The template_file property."""
-        return str(self.template_path / self.template_config["template_file"])
-
-    @template_file.setter
-    def template_file(self, value):
-        self.template_config["template_file"] = str(value)
-
-    @property
-    def template_path(self):
-        """The template_path property."""
-        return Path(self.template_config["template_path"]).expanduser()
-
-    @template_path.setter
-    def template_path(self, value):
-        self.template_config["template_file"] = str(value)
 
     def in_(self, node):
         in_prefix = self.template_config["in_prefix"] or ""
@@ -100,21 +74,21 @@ def create(path):
     # Find the templates, and make sure they are in the right place
     tttpath = Path(tttp.__file__).parent
     new_templates = tttpath.parent / "templates"
-    templates = instance.config_dir / "templates"
-    templates.mkdir(parents=True, exist_ok=True)
+    templates_path = path / "templates"
+    templates_path.mkdir(parents=True, exist_ok=True)
     for template in new_templates.glob("*.j2"):
-        if not (templates / template.name).exists():
-            (templates / template.name).write_text(template.read_text())
-
-    Path(config._dict.get("chat_path", "~/.config/cll/chats")).expanduser().mkdir(parents=True, exist_ok=True)
+        if not (templates_path / template.name).exists():
+            (templates_path / template.name).write_text(template.read_text())
 
 
 def launch(ctx):
-    if Path(ctx.obj.templater.template_file).exists():
-        contents = Path(ctx.obj.templater.template_file).read_text()
+    params = get_params(ctx)
+    template_file = Path(params["template_path"]) / params["template_file"]
+    if template_file.exists():
+        contents = template_file.read_text()
         print(Panel(contents, title=ctx.obj.templater.template_file, border_style="blue"))
     else:
-        print(f"Template file {ctx.obj.templater.template_file} does not exist.")
+        print(f"Template file {template_file} does not exist.")
 
 
 cli = make_typer_shell(prompt="🤖: ", intro="Welcome to the templater shell.", launch=launch)
@@ -154,13 +128,13 @@ def update(
     ctx.obj.config._update(name, value, ctx.obj.templater.template_config)
 
 
-@cli.command()
-def toggle(ctx: Context):
-    ctx.obj.templater.template_config["template"] = not ctx.obj.templater.template_config["template"]
-    print(f"Template mode is {'on' if ctx.obj.templater.template_config['template'] else 'off'}.")
-    config = ctx.obj.templater.config
-    config["templater"] = ctx.obj.templater.template_config
-    Config.save_config(ctx.obj.templater.config)
+# @cli.command()
+# def toggle(ctx: Context):
+#     ctx.obj.templater.template_config["template"] = not ctx.obj.templater.template_config["template"]
+#     print(f"Template mode is {'on' if ctx.obj.templater.template_config['template'] else 'off'}.")
+#     config = ctx.obj.templater.config
+#     config["templater"] = ctx.obj.templater.template_config
+#     Config.save_config(ctx.obj.templater.config)
 
 
 @cli.command()

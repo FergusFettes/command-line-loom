@@ -59,9 +59,7 @@ TREE_DEFAULT_PARAMS = {
     "path_neighborhood": 3,
     "head_neighborhood": 10,
     "encoder": None,
-    "chat_path": "~/.config/cll/chats",
     "chat_name": "default",
     "echo_prompt": False,
     "append": False,
 }
-

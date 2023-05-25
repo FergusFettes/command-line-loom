@@ -13,7 +13,6 @@ from typer import Context
 import tiktoken
 
 from cll.templater import Templater
-from cll.tree import Tree
 
 from typer_shell import get_params, update, IO
 

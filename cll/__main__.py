@@ -3,10 +3,21 @@
 from pathlib import Path
 
 from cll.app import App, default as model_default
-from cll.templater import cli as templater_cli
+from cll.templater import (
+    Templater,
+    create,
+    launch,
+    default as templater_default,
+    in_,
+    out,
+    edit as templater_edit,
+    telescope,
+    new as new_template,
+    show
+)
 from cll.tree import (
     set_encoder,
-    file,
+    list_chats,
     default,
     h,
     j,
@@ -36,7 +47,7 @@ from cll.tree import (
 )
 
 
-from cll.config import OPENAI_DEFAULT_PARAMS, TREE_DEFAULT_PARAMS
+from cll.config import OPENAI_DEFAULT_PARAMS, TREE_DEFAULT_PARAMS, TEMPLATE_DEFAULT_PARAMS
 
 from typer_shell import make_typer_shell
 from typer import get_app_dir
@@ -51,6 +62,7 @@ main = make_typer_shell(
 
 model_cli = make_typer_shell(
     prompt="📃: ",
+    obj=App(),
     intro="Welcome to the Model Config! Type help or ? to list commands.",
     params=OPENAI_DEFAULT_PARAMS,
     params_path=Path(get_app_dir("cll")) / "model.yaml",
@@ -60,11 +72,13 @@ model_cli.command(name="default")(model_default)
 
 tree_cli = make_typer_shell(
     prompt="🌲: ",
+    obj=App(),
+    intro="",
     launch=set_encoder,
     params=TREE_DEFAULT_PARAMS,
     params_path=Path(get_app_dir("cll")) / "tree.yaml"
 )
-tree_cli.command()(file)
+tree_cli.command(name="chats")(list_chats)
 tree_cli.command()(default)
 tree_cli.command()(h)
 tree_cli.command()(j)
@@ -118,6 +132,32 @@ tree_cli.command()(dump)
 
 main.add_typer(tree_cli, name="tree", help="(t) The tree view. This is where you want to be.")
 main.add_typer(tree_cli, name="t", hidden=True)
+
+
+templater_cli = make_typer_shell(
+    obj=App(),
+    prompt="🤖: ",
+    intro="Welcome to the Templater shell.",
+    params=TEMPLATE_DEFAULT_PARAMS,
+    params_path=Path(get_app_dir("cll")) / "templater.yaml",
+    launch=launch
+)
+templater_cli.command()(create)
+templater_cli.command()(templater_default)
+templater_cli.command(name="d", hidden=True)(default)
+templater_cli.command(name="in")(in_)
+templater_cli.command()(out)
+templater_cli.command(name="list")(Templater.list)
+templater_cli.command(name="l", hidden=True)(Templater.list)
+templater_cli.command(name="ls", hidden=True)(Templater.list)
+templater_cli.command()(templater_edit)
+templater_cli.command(name="e", hidden=True)(templater_edit)
+templater_cli.command()(telescope)
+templater_cli.command(name="t", hidden=True)(telescope)
+templater_cli.command()(new_template)
+templater_cli.command(name="n", hidden=True)(new_template)
+templater_cli.command()(show)
+templater_cli.command(name="s", hidden=True)(show)
 
 
 for app in [main, tree_cli]:

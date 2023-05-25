@@ -51,7 +51,6 @@ TEMPLATE_DEFAULT_PARAMS = {
     "in_prefix": "\nHuman: ",
     "out_prefix": "\nGPT:",
     "template": True,
-    "template_path": "~/.config/cll/templates",
     "template_file": "assist.j2",
 }
 

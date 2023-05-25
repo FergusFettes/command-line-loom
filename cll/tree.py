@@ -1,7 +1,6 @@
 import binascii
 from copy import deepcopy
 from dataclasses import dataclass
-from pathlib import Path
 from typing import List, Optional
 
 import iterfzf
@@ -18,21 +17,6 @@ from .encoder import Encoder
 
 
 @dataclass
-class DummyTree:
-    params: Optional[dict] = None
-    prompt: str = ""
-
-    def input(self, prompt):
-        self.prompt = prompt
-
-    def output(self, *_):
-        pass
-
-    def __len__(self):
-        return 0
-
-
-@dataclass
 class Tree:
     file: Optional[str] = None
     index: Optional[LoomIndex] = None
@@ -42,19 +26,12 @@ class Tree:
     decoder: Encoder = Encoder(Encoder.none)
 
     def __post_init__(self):
-        self.file = Path(self.file)
-
         if self.file and self.file.exists():
             self.index = LoomIndex.load_from_disk(str(self.file))
             return
 
+        self.file.parent.mkdir(parents=True, exist_ok=True)
         self.index = LoomIndex()
-
-    @staticmethod
-    def load_file(file):
-        if file.exists():
-            return Tree(file)
-        return DummyTree()
 
     @staticmethod
     def list_files(path):
@@ -140,7 +117,7 @@ def set_encoder(ctx, string=None):
     params = get_params(ctx)
     params_path = get_params_path(ctx)
     file_path = params_path.parent / "chats" / f"{params['chat_name']}.json"
-    ctx.obj.tree = Tree.load_file(file_path)
+    ctx.obj.tree = Tree(file_path)
     if not string and params:
         string = params.get("encoder", "none")
     if not string:
@@ -156,16 +133,13 @@ def set_encoder(ctx, string=None):
     path_with_current(ctx)
 
 
-def file(
+def list_chats(
     ctx: Context,
-    default_file: Annotated[Optional[str], Argument()] = None,
-    toggle: bool = False,
     list: bool = False,
     dump: bool = False,
 ):
-    """Manages the chat file. If you want to create an entirely new tree, do it here."""
+    """List available chat files."""
     config = ctx.obj.config
-    config.check_file(toggle, default_file, config)
     if list:
         Tree(config=config).list_files()
     if dump:

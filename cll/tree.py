@@ -306,7 +306,7 @@ def display(
 
     if type in ["tr", "templated"]:
         prompt = ctx.obj.tree.prompt
-        prompt = ctx.obj.templater.prompt(prompt)
+        prompt = ctx.obj.templater.prompt(ctx, prompt)
         print(prompt)
         return
 
@@ -336,7 +336,7 @@ def _append(ctx, msg):
     if isinstance(msg, tuple) or isinstance(msg, list):
         msg = " ".join(msg)
     node = ctx.obj.tree.index._create_node(msg)
-    node = ctx.obj.templater.in_(node)
+    node = ctx.obj.templater.in_(ctx, node)
     ctx.obj.tree.input(node)
 
 
@@ -373,7 +373,7 @@ def _send(ctx):
             pass
         response = ctx.obj.tree.index._create_node(response)
         # Then template
-        response = ctx.obj.templater.out(response)
+        response = ctx.obj.templater.out(ctx, response)
         callback(response)
 
     if choice is not None:

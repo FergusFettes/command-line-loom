@@ -24,25 +24,34 @@ class Templater:
     Templates are stored as editable files.
     """
 
-    def in_(self, node):
-        in_prefix = self.template_config["in_prefix"] or ""
+    @staticmethod
+    def in_(ctx: Context, node):
+        params = get_params(ctx)
+        in_prefix = params["in_prefix"] or ""
         node.prefix = in_prefix
         return node
 
-    def prompt(self, prompt):
-        out_prefix = self.template_config["out_prefix"] or ""
+    @staticmethod
+    def prompt(ctx: Context, prompt):
+        params = get_params(ctx)
+        out_prefix = params["out_prefix"] or ""
         prompt = prompt + out_prefix
-        if self.template_config["template"]:
-            prompt = self._prompt(prompt)
+        if params["template"]:
+            prompt = Templater._prompt(prompt)
         return prompt
 
-    def _prompt(self, prompt):
+    @staticmethod
+    def _prompt(ctx: Context, prompt):
+        templates_path = get_params_path(ctx).parent / "templates"
+        params = get_params(ctx)
+
         args = {"prompt": prompt}
-        template = Path(self.template_file).read_text()
+        template = (templates_path / params["template_file"]).read_text()
         return jinja2.Template(template).render(**args)
 
-    def out(self, node):
-        out_prefix = self.template_config["out_prefix"] or ""
+    def out(ctx: Context, node):
+        params = get_params(ctx)
+        out_prefix = params["out_prefix"] or ""
         node.prefix = out_prefix
         return node
 

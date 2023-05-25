@@ -14,7 +14,7 @@ import tiktoken
 
 from cll.templater import Templater
 
-from typer_shell import get_params, update, IO
+from typer_shell import get_params, _update, IO
 
 
 @dataclass
@@ -176,7 +176,7 @@ def default(ctx: Context, line: str):
     args = line.split(" ")
     params = get_params(ctx)
     if args[0] in params:
-        update(args[0], args[1], params)
+        _update(args[0], args[1], params)
     else:
         print(
             f"[red]Unknown command/param {args[0]}[/red]. "

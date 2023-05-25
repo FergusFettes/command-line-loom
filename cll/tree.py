@@ -12,7 +12,7 @@ from rich.panel import Panel
 from typer import Argument, Context
 from typing_extensions import Annotated
 
-from typer_shell import get_params, update, save as save_config, print as print_config, get_params_path
+from typer_shell import get_params, _update, save as save_config, print as print_config, get_params_path
 from .encoder import Encoder
 
 
@@ -204,7 +204,7 @@ def neighborhood(ctx: Context):
         value = input(f"{key} [{value}]: ")
         if not value:
             continue
-        update(key, value, params)
+        _update(key, value, params)
     save_config(ctx)
     path_with_current(ctx)
     print(params)

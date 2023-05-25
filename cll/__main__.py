@@ -7,7 +7,7 @@ from cll.templater import (
     Templater,
     create,
     launch,
-    default as templater_default,
+    set_default,
     in_,
     out,
     edit as templater_edit,
@@ -143,7 +143,7 @@ templater_cli = make_typer_shell(
     launch=launch
 )
 templater_cli.command()(create)
-templater_cli.command()(templater_default)
+templater_cli.command()(set_default)
 templater_cli.command(name="d", hidden=True)(default)
 templater_cli.command(name="in")(in_)
 templater_cli.command()(out)

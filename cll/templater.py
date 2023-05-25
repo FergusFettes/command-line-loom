@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 from typing_extensions import Annotated
+import re
 
 import click
 import jinja2
@@ -12,7 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 from typer import Context, Argument
 
-from typer_shell import get_params, get_params_path
+from typer_shell import get_params, get_params_path, update, save
 
 import tttp
 
@@ -45,10 +46,6 @@ class Templater:
         node.prefix = out_prefix
         return node
 
-    def save(self):
-        self.config._dict["templater"] = self.template_config
-        self.config.save()
-
     @staticmethod
     def list(ctx: Context, short: bool = True):
         templates_path = get_params_path(ctx).parent / "templates"
@@ -71,7 +68,6 @@ class Templater:
 
 
 def create(ctx: Context):
-
     # Find the templates, and make sure they are in the right place
     tttpath = Path(tttp.__file__).parent
     new_templates = tttpath.parent / "templates"
@@ -93,12 +89,12 @@ def launch(ctx):
         print(f"Template file {template_file} does not exist.")
 
 
-def default(ctx: Context, filename: str):
+def set_default(ctx: Context, filename: str):
     "(d) Set the default template file."
     if not filename.endswith(".j2"):
         filename = filename + ".j2"
-    ctx.obj.templater.template_config["template_file"] = filename
-    ctx.obj.templater.save()
+    update(ctx, "template_file", filename)
+    save(ctx)
 
 
 def in_(
@@ -113,8 +109,8 @@ def in_(
     newline = newline and bool(prefix)
     if newline:
         prefix = "\n" + prefix
-    ctx.obj.templater.template_config["in_prefix"] = prefix
-    ctx.obj.templater.save()
+    update(ctx, "in_prefix", prefix)
+    save(ctx)
 
 
 def out(
@@ -129,8 +125,8 @@ def out(
     newline = newline and bool(prefix)
     if newline:
         prefix = "\n" + prefix
-    ctx.obj.templater.template_config["out_prefix"] = prefix
-    ctx.obj.templater.save()
+    update(ctx, "out_prefix", prefix)
+    save(ctx)
 
 
 def edit(
@@ -138,19 +134,24 @@ def edit(
     filename: Annotated[Optional[str], Argument()] = None,
 ):
     """(e) Edit a template file (default current)."""
+    templates_path = get_params_path(ctx).parent / "templates"
+
     if filename is None:
-        filename = Path(ctx.obj.templater.template_file).stem
+        filename = (templates_path / filename).stem
     if not filename.endswith(".j2"):
         filename = filename + ".j2"
     templates_path = get_params_path(ctx).parent / "templates"
     filename = templates_path / Path(filename)
     click.edit(filename=filename)
 
-    if filename.stem != Path(ctx.obj.templater.template_file).stem:
+    params = get_params(ctx)
+    current_file = templates_path / params["template_file"]
+
+    if filename.stem != current_file.stem:
         default = click.confirm("Make default?", abort=True)
         if default:
-            ctx.obj.config._dict["template_file"] = filename.stem
-            ctx.obj.config.save()
+            update(ctx, "template_file", filename.stem)
+            save(ctx)
 
 
 def telescope(ctx: Context):
@@ -164,20 +165,27 @@ def new(ctx: Context, filename: str):
     if not filename.endswith(".j2"):
         filename = filename + ".j2"
     templates_path = get_params_path(ctx).parent / "templates"
-    filename = templates_path / Path(filename)
+    filename = templates_path / filename
 
     click.edit(filename=filename)
+    # Open the file, and check that there is a string like "{.{0,1}prompt.{0,1}} in it"
+    with filename.open('r') as fi:
+        contents = fi.read()
+    if not re.search(r"{.{0,1}prompt.{0,1}}", contents):
+        print("File does not contain a prompt. You need a string like { prompt } in it.")
+        return
 
     default = click.confirm("Make default?", abort=True)
     if default:
-        ctx.obj.config._dict["template_file"] = filename.stem
-        ctx.obj.config.save()
+        update(ctx, "template_file", filename.stem)
+        save(ctx)
 
 
 def show(ctx: Context, filename: str):
     """(s) Show a template."""
+    params = get_params(ctx)
     if filename is None:
-        filename = Path(ctx.obj.templater.template_file).stem
+        filename = Path(params["template_file"]).stem
     if not filename.endswith(".j2"):
         filename = filename + ".j2"
     templates_path = get_params_path(ctx).parent / "templates"

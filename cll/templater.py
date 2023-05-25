@@ -15,6 +15,8 @@ from typing_extensions import Annotated
 from .config import Config
 from typer_shell import make_typer_shell
 
+import tttp
+
 
 @dataclass
 class Templater:
@@ -90,6 +92,21 @@ class Templater:
 
         if short:
             print(table)
+
+
+def create(path):
+    path.mkdir(parents=True, exist_ok=True)
+
+    # Find the templates, and make sure they are in the right place
+    tttpath = Path(tttp.__file__).parent
+    new_templates = tttpath.parent / "templates"
+    templates = instance.config_dir / "templates"
+    templates.mkdir(parents=True, exist_ok=True)
+    for template in new_templates.glob("*.j2"):
+        if not (templates / template.name).exists():
+            (templates / template.name).write_text(template.read_text())
+
+    Path(config._dict.get("chat_path", "~/.config/cll/chats")).expanduser().mkdir(parents=True, exist_ok=True)
 
 
 def launch(ctx):

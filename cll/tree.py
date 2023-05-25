@@ -13,8 +13,7 @@ from rich.panel import Panel
 from typer import Argument, Context, get_app_dir
 from typing_extensions import Annotated
 
-from typer_shell import make_typer_shell
-from typer_shell.typer_shell import _update as update, save as save_config, _print as print_config
+from typer_shell import make_typer_shell, get_params, update, save as save_config, print as print_config
 from .encoder import Encoder
 
 
@@ -50,6 +49,24 @@ class Tree:
             return
 
         self.index = LoomIndex()
+
+    @staticmethod
+    def load_file(file):
+        if file.exists():
+            return Tree(file)
+        return DummyTree()
+
+    @staticmethod
+    def list_files(path):
+        if path.exists():
+            Tree._list_dir(path)
+
+    @staticmethod
+    def _list_dir(path):
+        files = [x for x in path.glob("*.json")]
+        print(f"Found {len(files)} chats.")
+        for file in files:
+            print(f"{file.stem}")
 
     @property
     def prompt_context(self):
@@ -117,18 +134,6 @@ def path_with_current(ctx):
     print(Panel.fit(path_str, title="Prompt (unencoded, without template)", border_style="bold magenta"))
 
 
-def get_params(ctx):
-    name = ctx.command.name
-    if name not in ctx.obj.params_groups:
-        if ctx.parent:
-            name = ctx.parent.command.name
-    if name not in ctx.obj.params_groups:
-        print("Cant find params!")
-    else:
-        params = ctx.obj.params_groups[name]['params']
-        return params
-
-
 def set_encoder(ctx, string=None):
     params = get_params(ctx)
     if not string and params:
@@ -147,12 +152,21 @@ def set_encoder(ctx, string=None):
     path_with_current(ctx)
 
 
-cli = make_typer_shell(
-    prompt="🌲: ",
-    launch=set_encoder,
-    params={"path_neighborhood": 3, "head_neighborhood": 10},
-    params_path=Path(get_app_dir("cll")) / "tree.yaml"
-)
+@cli.command()
+def file(
+    ctx: Context,
+    default_file: Annotated[Optional[str], Argument()] = None,
+    toggle: bool = False,
+    list: bool = False,
+    dump: bool = False,
+):
+    """Manages the chat file. If you want to create an entirely new tree, do it here."""
+    config = ctx.obj.config
+    config.check_file(toggle, default_file, config)
+    if list:
+        Tree(config=config).list_files()
+    if dump:
+        print(Tree(config=config).dump())
 
 
 @cli.command(hidden=True)
@@ -394,7 +408,7 @@ def send(
 def _send(ctx):
     # Encoding happens in the tree
     prompt = ctx.obj.tree.prompt
-    params = deepcopy(ctx.obj.tree.params)
+    params = deepcopy(get_params(ctx, "model"))
 
     # Then templating (so template stays in english)
     prompt = ctx.obj.templater.prompt(prompt)
@@ -592,41 +606,3 @@ def dump(ctx: Context):
         ctx.obj.tree.index.delete(ids)
 
     path_with_current(ctx)
-
-
-# @staticmethod
-# def context(_, command_params, tree):
-#     if command_params and command_params[0] == "help":
-#         click.echo(
-#             "modify the context. context can be added to nodes but are not part of the main path\n"
-#             "\t\t\tsubcommands are clear, list, remove or add"
-#         )
-#         return
-#
-#     if command_params[0] == "clear":
-#         for node in tree.index.path:
-#             if node.node_info.get("context"):
-#                 del node.node_info["context"]
-#
-#     if command_params[0] == "list":
-#         docs = [(tree.index.get_context(node), node.index) for node in tree.index.path]
-#         docs = [(doc, index) for doc, index in docs if doc is not None]
-#         for doc, index in docs:
-#             doc_text = doc.text.replace("\n", " ")[: tree.termwidth]
-#             click.echo(f"{index}: {doc_text}")
-#         return
-#
-#     if command_params[0] == "remove":
-#         for index in command_params[1:]:
-#             tree.index.delete_context(int(index))
-#
-#     if command_params[0] == "add":
-#         # If no context is given, just add the last node as context
-#         if len(command_params) == 1:
-#             new_context = tree.index.path[-1].text
-#         else:
-#             new_context = " ".join(command_params[1:])
-#
-#         tree.index.add_context(new_context, tree.index.path[-1])
-#
-#     tree.save()

@@ -2,7 +2,6 @@ import re
 import shutil
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Optional
 
 import openai
 import rich
@@ -11,28 +10,41 @@ from rich import print
 from rich.live import Live
 from rich.table import Table
 from typer import Context
+import tiktoken
 
 from cll.config import Config
-from cll.io import IO
 from cll.store import Store
 from cll.templater import Templater
+
+from typer_shell import get_params, IO
 
 
 @dataclass
 class App:
     echo_prompt: bool = False
     append: bool = False
+    model_tokens = {
+        "gpt-4": 4096 - 8,
+        "gpt-3.5-turbo": 4096 - 8,
+        "text-davinci-003": 4096 - 8,
+        "text-davinci-002": 4096 - 8,
+        "code-davinci-002": 4096 - 8,
+    }
 
     def __post_init__(self):
         self.config = Config.check_config()
-        self.openai_config = Config.load_openai_config()
         self.store = Store(config=self.config)
         self.templater = Templater(config=self.config)
         self.io = IO
         self.tree = self.store.load_file()
-        if self.openai_config:
-            self.params = self.openai_config["engine_params"]
-            self.tree.params = self.params
+
+    @staticmethod
+    def get_encoding(model):
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+        except (KeyError, ValueError):
+            encoding = tiktoken.get_encoding("gpt2")
+        return encoding
 
     @staticmethod
     def simple_gen(config, params):
@@ -167,11 +179,12 @@ class OAIGen:
 def default(ctx: Context, line: str):
     """Default command"""
     args = line.split(" ")
-    if args[0] in ctx.obj.tree.params:
-        Config._update(args[0], args[1], ctx.obj.tree.params)
+    params = get_params(ctx)
+    if args[0] in params:
+        Config._update(args[0], args[1], params)
     else:
         print(
             f"[red]Unknown command/param {args[0]}[/red]. "
             "If you need to add it to the dict, use 'update'."
         )
-    print(ctx.obj.tree.params)
+    print(params)

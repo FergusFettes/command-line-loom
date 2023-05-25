@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
-from cll.app import App
-from cll.app import cli as app_cli
+from cll.app import App, default as model_default
 from cll.config import cli as config_cli
 from cll.store import cli as store_cli
 from cll.templater import cli as templater_cli
 from cll.tree import cli as tree_cli
 
+from cll import OPENAI_DEFAULT_PARAMS
+
 from typer_shell import make_typer_shell
+
 
 main = make_typer_shell(
     prompt="🧵: ",
@@ -15,6 +17,16 @@ main = make_typer_shell(
     obj=App(),
 )
 
+
+model_cli = make_typer_shell(
+    prompt="📃: ",
+    intro="Welcome to the Model Config! Type help or ? to list commands.",
+    params=OPENAI_DEFAULT_PARAMS,
+    hidden_params=["API_KEY", "API_BASE"]
+)
+model_cli.command()(model_default)
+
+# TODO: check for openai api key here? or just check when it comes up?
 
 main.add_typer(
     store_cli,
@@ -31,18 +43,12 @@ main.add_typer(
     ),
 )
 main.add_typer(config_cli, name="c", hidden=True)
-
-main.add_typer(app_cli, name="params", help="(p) Model params.")
-main.add_typer(app_cli, name="p", hidden=True)
-
 main.add_typer(tree_cli, name="tree", help="(t) The tree view. This is where you want to be.")
 main.add_typer(tree_cli, name="t", hidden=True)
 
-tree_cli.add_typer(app_cli, name="params", help="(p) Model params.")
-tree_cli.add_typer(app_cli, name="p", hidden=True)
 
-main.add_typer(templater_cli, name="template", help="(tr) Templater.")
-main.add_typer(templater_cli, name="tr", hidden=True)
-
-tree_cli.add_typer(templater_cli, name="template", help="(tr) Templater.")
-tree_cli.add_typer(templater_cli, name="tr", hidden=True)
+for app in [main, tree_cli]:
+    app.add_typer(templater_cli, name="template", help="(tr) Templater.")
+    app.add_typer(templater_cli, name="tr", hidden=True)
+    app.add_typer(app_cli, name="params", help="(p) Model params.")
+    app.add_typer(app_cli, name="p", hidden=True)

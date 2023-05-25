@@ -10,14 +10,12 @@ import typer
 from rich import print
 from rich.live import Live
 from rich.table import Table
-from typer import Argument, Context
-from typing_extensions import Annotated
+from typer import Context
 
 from cll.config import Config
 from cll.io import IO
 from cll.store import Store
 from cll.templater import Templater
-from typer_shell import make_typer_shell
 
 
 @dataclass
@@ -166,10 +164,6 @@ class OAIGen:
         live.update(table)
 
 
-cli = make_typer_shell(prompt="📃: ", intro="Welcome to the Model Config! Type help or ? to list commands.")
-
-
-@cli.command()
 def default(ctx: Context, line: str):
     """Default command"""
     args = line.split(" ")
@@ -180,40 +174,4 @@ def default(ctx: Context, line: str):
             f"[red]Unknown command/param {args[0]}[/red]. "
             "If you need to add it to the dict, use 'update'."
         )
-    print(ctx.obj.tree.params)
-
-
-@cli.command(name="print")
-@cli.command(name="p", hidden=True)
-def _print(ctx: Context):
-    "(p) Print the current config."
-    print(ctx.obj.tree.params)
-
-
-@cli.command()
-@cli.command(name="s", hidden=True)
-def save(ctx: Context):
-    "(s) Save the current config to the config file."
-    ctx.obj.openai_config["engine_params"] = ctx.obj.tree.params
-    Config.save_openai_config(ctx.obj.openai_config)
-    print("Saved config.")
-
-
-@cli.command()
-@cli.command(name="u", hidden=True)
-def update(
-    ctx: Context,
-    name: Annotated[Optional[str], Argument()] = None,
-    value: Annotated[Optional[str], Argument()] = None,
-    kv: Annotated[Optional[str], Argument()] = None,
-):
-    "(u) Update a config value, or set of values. (kv in the form of 'name1=value1,name2=value2'). "
-    "You can also just type 'name value' without 'u' to update a single value."
-    if kv:
-        updates = kv.split(",")
-        for kv in updates:
-            name, value = kv.split("=")
-            Config._update(name, value, ctx.obj.tree.params)
-        return
-    Config._update(name, value, ctx.obj.tree.params)
     print(ctx.obj.tree.params)

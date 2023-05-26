@@ -26,31 +26,31 @@ class Templater:
 
     @staticmethod
     def in_(ctx: Context, node):
-        params = get_params(ctx)
+        params = get_params(ctx, "tr")
         in_prefix = params["in_prefix"] or ""
         node.prefix = in_prefix
         return node
 
     @staticmethod
     def prompt(ctx: Context, prompt):
-        params = get_params(ctx)
+        params = get_params(ctx, "tr")
         out_prefix = params["out_prefix"] or ""
         prompt = prompt + out_prefix
         if params["template"]:
-            prompt = Templater._prompt(prompt)
+            prompt = Templater._prompt(ctx, prompt)
         return prompt
 
     @staticmethod
     def _prompt(ctx: Context, prompt):
         templates_path = get_params_path(ctx).parent / "templates"
-        params = get_params(ctx)
+        params = get_params(ctx, "tr")
 
         args = {"prompt": prompt}
         template = (templates_path / params["template_file"]).read_text()
         return jinja2.Template(template).render(**args)
 
     def out(ctx: Context, node):
-        params = get_params(ctx)
+        params = get_params(ctx, "tr")
         out_prefix = params["out_prefix"] or ""
         node.prefix = out_prefix
         return node

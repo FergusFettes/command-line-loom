@@ -3,6 +3,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import List, Optional
 
+import yaml
 import iterfzf
 import click
 from cll.data_structs import LoomIndex
@@ -12,7 +13,7 @@ from rich.panel import Panel
 from typer import Argument, Context
 from typing_extensions import Annotated
 
-from typer_shell import get_params, _update, save as save_config, print as print_config, get_params_path
+from typer_shell import get_params, _update, save as save_config, print as print_config, get_params_path, add_params
 from .encoder import Encoder
 
 
@@ -113,11 +114,31 @@ def path_with_current(ctx):
     print(Panel.fit(path_str, title="Prompt (unencoded, without template)", border_style="bold magenta"))
 
 
-def set_encoder(ctx, string=None):
+def launch(ctx, string=None):
     params = get_params(ctx)
     params_path = get_params_path(ctx)
     file_path = params_path.parent / "chats" / f"{params['chat_name']}.json"
     ctx.obj.tree = Tree(file_path)
+    set_encoder(ctx, string)
+    # If the params for the other shells were not loaded properly, do it by hand.
+    template_params = get_params(ctx, "tr")
+    if not template_params:
+        params_path = params_path.parent / "templater.yaml"
+        with params_path.open('r') as f:
+            params = yaml.load(f, Loader=yaml.FullLoader)
+        add_params(ctx, params, params_path, "tr")
+
+    # If the params for the other shells were not loaded properly, do it by hand.
+    model_params = get_params(ctx, "model")
+    if not model_params:
+        params_path = params_path.parent / "model.yaml"
+        with params_path.open('r') as f:
+            params = yaml.load(f, Loader=yaml.FullLoader)
+        add_params(ctx, params, params_path, "model")
+
+
+def set_encoder(ctx, string=None):
+    params = get_params(ctx)
     if not string and params:
         string = params.get("encoder", "none")
     if not string:
@@ -355,7 +376,7 @@ def _send(ctx):
     params = deepcopy(get_params(ctx, "model"))
 
     # Then templating (so template stays in english)
-    prompt = ctx.obj.templater.prompt(prompt)
+    prompt = ctx.obj.templater.prompt(ctx, prompt)
     params["prompt"] = prompt
 
     responses, choice = ctx.obj.simple_gen(ctx.obj.config, params)

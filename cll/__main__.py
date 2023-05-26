@@ -6,7 +6,7 @@ from cll.app import App, default as model_default
 from cll.templater import (
     Templater,
     create,
-    launch,
+    launch as templater_launch,
     set_default,
     in_,
     out,
@@ -16,7 +16,7 @@ from cll.templater import (
     show
 )
 from cll.tree import (
-    set_encoder,
+    launch as tree_launch,
     list_chats,
     default,
     h,
@@ -74,7 +74,7 @@ tree_cli = make_typer_shell(
     prompt="🌲: ",
     obj=App(),
     intro="",
-    launch=set_encoder,
+    launch=tree_launch,
     params=TREE_DEFAULT_PARAMS,
     params_path=Path(get_app_dir("cll")) / "tree.yaml"
 )
@@ -140,7 +140,7 @@ templater_cli = make_typer_shell(
     intro="Welcome to the Templater shell.",
     params=TEMPLATE_DEFAULT_PARAMS,
     params_path=Path(get_app_dir("cll")) / "templater.yaml",
-    launch=launch
+    launch=templater_launch
 )
 templater_cli.command()(create)
 templater_cli.command()(set_default)
@@ -163,5 +163,5 @@ templater_cli.command(name="s", hidden=True)(show)
 for app in [main, tree_cli]:
     app.add_typer(templater_cli, name="template", help="(tr) Templater.")
     app.add_typer(templater_cli, name="tr", hidden=True)
-    app.add_typer(model_cli, name="params", help="(p) Model params.")
+    app.add_typer(model_cli, name="model", help="(p) Model params.")
     app.add_typer(model_cli, name="p", hidden=True)

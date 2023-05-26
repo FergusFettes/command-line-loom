@@ -206,8 +206,18 @@ def default(ctx: Context, line: str):
     print(params)
 
 
-def add_logit(ctx: Context, string: str, bias: int):
+def add_logit(ctx: Context, string: str, bias: int, sign: str = "-"):
     """Add a logit bias"""
+    if sign == "-":
+        bias = -bias
     params = get_params(ctx)
     params["logit_bias"][string] = bias
+    print(params)
+
+
+def remove_logit(ctx: Context, string: str):
+    """Add a logit bias"""
+    params = get_params(ctx)
+    if string in params["logit_bias"]:
+        del params["logit_bias"][string]
     print(params)

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from cll.app import App, default as model_default, add_logit
+from cll.app import App, default as model_default, add_logit, remove_logit
 from cll.templater import (
     Templater,
     create,
@@ -72,6 +72,8 @@ model_cli = make_typer_shell(
 model_cli.command(name="default")(model_default)
 model_cli.command(name="add-logit")(add_logit)
 model_cli.command(name="al")(add_logit)
+model_cli.command(name="remove-logit")(remove_logit)
+model_cli.command(name="al")(remove_logit)
 
 
 tree_cli = make_typer_shell(
@@ -148,7 +150,7 @@ templater_cli = make_typer_shell(
 )
 templater_cli.command()(create)
 templater_cli.command()(set_default)
-templater_cli.command(name="d", hidden=True)(default)
+templater_cli.command(name="d", hidden=True)(set_default)
 templater_cli.command(name="in")(in_)
 templater_cli.command()(out)
 templater_cli.command(name="list")(Templater.list)

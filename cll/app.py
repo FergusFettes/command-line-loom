@@ -45,17 +45,11 @@ class App:
     def simple_gen(config, params):
         if params["model"] == "test":
             return params["prompt"]
+
         App.max_tokens(params)
-        if params["model"] == "code-davinci-002":
-            if "cd2_base" not in config or "cd2_key" not in config:
-                raise typer.Exit("Please set cd2_base and cd2_key in your config file")
-            openai.api_base = config.get("cd2_base")
-            openai.api_key = config.get("cd2_key")
-            params["stream"] = False
+        App.set_key(config, params)
+        params = App.configure_logit_bias(params)
         generations, choice = OAIGen.gen(params)
-        if params["model"] == "code-davinci-002":
-            openai.api_key = config.get("api_key")
-            openai.api_base = config.get("api_base", "https://api.openai.com/v1")
 
         for i, gen in generations.items():
             if gen.startswith("\n"):
@@ -72,6 +66,33 @@ class App:
 
         if request_total > model_max:
             params["max_tokens"] = model_max - len(encoding.encode(params["prompt"]))
+
+    @staticmethod
+    def set_key(config, params):
+        if params["model"] == "code-davinci-002":
+            if "cd2_base" not in config or "cd2_key" not in config:
+                raise typer.Exit("Please set cd2_base and cd2_key in your config file")
+            openai.api_base = config.get("cd2_base")
+            openai.api_key = config.get("cd2_key")
+            params["stream"] = False
+            return
+        openai.api_base = config.get("api_base")
+        openai.api_key = config.get("api_key")
+
+    @staticmethod
+    def configure_logit_bias(params):
+        # Logit biases are a dict, key = word, value = bias
+        # First get the token from the key
+        tokenizer = App.get_encoding(params["model"])
+        logits = {}
+        for k, v in params["logit_bias"].items():
+            if k.startswith("token:"):
+                logits[int(k.split(":")[1])] = v
+            else:
+                token = tokenizer.encode(f" {k}")[0]
+                logits[token] = v
+        params["logit_bias"] = logits
+        return params
 
     def output(self, response):
         self.io.return_prompt(
@@ -182,4 +203,11 @@ def default(ctx: Context, line: str):
             f"[red]Unknown command/param {args[0]}[/red]. "
             "If you need to add it to the dict, use 'update'."
         )
+    print(params)
+
+
+def add_logit(ctx: Context, string: str, bias: int):
+    """Add a logit bias"""
+    params = get_params(ctx)
+    params["logit_bias"][string] = bias
     print(params)

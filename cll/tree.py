@@ -379,7 +379,7 @@ def _send(ctx):
     prompt = ctx.obj.templater.prompt(ctx, prompt)
     params["prompt"] = prompt
 
-    responses, choice = ctx.obj.simple_gen(ctx.obj.config, params)
+    responses, choice = ctx.obj.simple_gen(get_params(ctx, "main"), params)
     if len(responses) == 1:
         callback = ctx.obj.tree.extend
     else:

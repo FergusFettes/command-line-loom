@@ -49,6 +49,7 @@ class Templater:
         template = (templates_path / params["template_file"]).read_text()
         return jinja2.Template(template).render(**args)
 
+    @staticmethod
     def out(ctx: Context, node):
         params = get_params(ctx, "tr")
         out_prefix = params["out_prefix"] or ""

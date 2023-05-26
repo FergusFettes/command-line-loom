@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from cll.app import App, default as model_default
+from cll.app import App, default as model_default, add_logit
 from cll.templater import (
     Templater,
     create,
@@ -47,7 +47,7 @@ from cll.tree import (
 )
 
 
-from cll.config import OPENAI_DEFAULT_PARAMS, TREE_DEFAULT_PARAMS, TEMPLATE_DEFAULT_PARAMS
+from cll.config import OPENAI_DEFAULT_PARAMS, TREE_DEFAULT_PARAMS, TEMPLATE_DEFAULT_PARAMS, APP_DEFAULT_PARAMS
 
 from typer_shell import make_typer_shell
 from typer import get_app_dir
@@ -57,6 +57,8 @@ main = make_typer_shell(
     prompt="🧵: ",
     intro="Welcome to Command Line Loom! Type help or ? to list commands.",
     obj=App(),
+    params=APP_DEFAULT_PARAMS,
+    params_path=Path(get_app_dir("cll")) / "main.yaml",
 )
 
 
@@ -68,6 +70,8 @@ model_cli = make_typer_shell(
     params_path=Path(get_app_dir("cll")) / "model.yaml",
 )
 model_cli.command(name="default")(model_default)
+model_cli.command(name="add-logit")(add_logit)
+model_cli.command(name="al")(add_logit)
 
 
 tree_cli = make_typer_shell(

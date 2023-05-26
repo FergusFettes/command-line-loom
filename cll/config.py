@@ -62,3 +62,10 @@ TREE_DEFAULT_PARAMS = {
     "echo_prompt": False,
     "append": False,
 }
+
+APP_DEFAULT_PARAMS = {
+    "api_key": "",
+    "api_base": "https://api.openai.com/v1",
+    "cd2_key": "",
+    "cd2_base": "",
+}

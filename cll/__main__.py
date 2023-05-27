@@ -69,11 +69,11 @@ model_cli = make_typer_shell(
     params=OPENAI_DEFAULT_PARAMS,
     params_path=Path(get_app_dir("cll")) / "model.yaml",
 )
-model_cli.command(name="default")(model_default)
+model_cli.command(name="default", hidden=True)(model_default)
 model_cli.command(name="add-logit")(add_logit)
-model_cli.command(name="al")(add_logit)
+model_cli.command(name="al", hidden=True)(add_logit)
 model_cli.command(name="remove-logit")(remove_logit)
-model_cli.command(name="al")(remove_logit)
+model_cli.command(name="rl", hidden=True)(remove_logit)
 
 
 tree_cli = make_typer_shell(

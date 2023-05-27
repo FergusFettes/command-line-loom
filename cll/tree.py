@@ -124,17 +124,19 @@ def launch(ctx, string=None):
     template_params = get_params(ctx, "tr")
     if not template_params:
         params_path = params_path.parent / "templater.yaml"
-        with params_path.open('r') as f:
-            params = yaml.load(f, Loader=yaml.FullLoader)
-        add_params(ctx, params, params_path, "tr")
+        if params_path.exists():
+            with params_path.open('r') as f:
+                params = yaml.load(f, Loader=yaml.FullLoader)
+            add_params(ctx, params, params_path, "tr")
 
     # If the params for the other shells were not loaded properly, do it by hand.
     model_params = get_params(ctx, "model")
     if not model_params:
         params_path = params_path.parent / "model.yaml"
-        with params_path.open('r') as f:
-            params = yaml.load(f, Loader=yaml.FullLoader)
-        add_params(ctx, params, params_path, "model")
+        if params_path.exists():
+            with params_path.open('r') as f:
+                params = yaml.load(f, Loader=yaml.FullLoader)
+            add_params(ctx, params, params_path, "model")
 
 
 def set_encoder(ctx, string=None):

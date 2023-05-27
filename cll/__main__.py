@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from cll.app import App, default as model_default, add_logit, remove_logit
+from cll.model import App, default as model_default, add_logit, remove_logit
 from cll.templater import (
     Templater,
     create,

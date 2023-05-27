@@ -64,7 +64,7 @@ model_cli = make_typer_shell(
     obj=App.load(),
     intro="Welcome to the Model Config! Type help or ? to list commands.",
     params_path=Path(get_app_dir("cll")) / "model.yaml",
-    aliases={"p": "model"}
+    aliases={"m": "model"}
 )
 model_cli.command(name="default", hidden=True)(model_default)
 model_cli.command(name="add-logit")(add_logit)
@@ -100,7 +100,6 @@ tree_cli.command()(redecode)
 tree_cli.command(name="de", hidden=True)(redecode)
 tree_cli.command()(display)
 tree_cli.command(name="d", hidden=True)(display)
-tree_cli.command(name="p", hidden=True)(display)
 tree_cli.command(name="t", hidden=True)(display_tree)
 tree_cli.command(name="dt", hidden=True)(display_tree)
 tree_cli.command(name="a", hidden=True)(display_all)
@@ -167,5 +166,5 @@ for app in [main, tree_cli]:
     app.add_typer(templater_cli, name="template", help="(tr) Templater.")
     app.add_typer(templater_cli, name="templater", hidden=True)
     app.add_typer(templater_cli, name="tr", hidden=True)
-    app.add_typer(model_cli, name="model", help="(p) Model params.")
-    app.add_typer(model_cli, name="p", hidden=True)
+    app.add_typer(model_cli, name="model", help="(m) Model params.")
+    app.add_typer(model_cli, name="m", hidden=True)

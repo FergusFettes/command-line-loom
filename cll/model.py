@@ -1,7 +1,9 @@
+from pathlib import Path
 import re
 import shutil
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Dict
 
 import openai
 import rich
@@ -11,10 +13,13 @@ from rich.live import Live
 from rich.table import Table
 from typer import Context
 import tiktoken
+import yaml
 
-from cll.templater import Templater
+from cll.templater import Templater, _create
+from cll.config import OPENAI_DEFAULT_PARAMS, TREE_DEFAULT_PARAMS, TEMPLATE_DEFAULT_PARAMS, MAIN_DEFAULT_PARAMS
 
-from typer_shell import get_params, _update, IO
+from typer_shell import get_params, _update, IO, _save
+from typer import get_app_dir
 
 
 @dataclass
@@ -28,10 +33,42 @@ class App:
         "text-davinci-002": 4096 - 8,
         "code-davinci-002": 4096 - 8,
     }
+    params_groups: Dict[str, Dict] = field(default_factory=dict)
 
     def __post_init__(self):
         self.templater = Templater()
         self.io = IO
+
+    @classmethod
+    def load(cls):
+        params_path = Path(get_app_dir("cll"))
+        if not (params_path / "model.yaml").exists():
+            print("No config! Initializting!")
+            App.init()
+
+        instance = cls()
+        for name in ["templater", "model", "tree", "main"]:
+            if name in instance.params_groups:
+                continue
+            path = params_path / f"{name}.yaml"
+            if path.exists():
+                with path.open('r') as f:
+                    params = yaml.load(f, Loader=yaml.FullLoader)
+                instance.params_groups.update({name: {"params": params, "path": path}})
+        return instance
+
+    def init():
+        params_path = Path(get_app_dir("cll"))
+        params_path.mkdir(parents=True, exist_ok=True)
+        params_map = {
+            "templater": TEMPLATE_DEFAULT_PARAMS,
+            "model": OPENAI_DEFAULT_PARAMS,
+            "tree": TREE_DEFAULT_PARAMS,
+            "main": MAIN_DEFAULT_PARAMS
+        }
+        for filename, params in params_map.items():
+            _save(params_path / f"{filename}.yaml", params)
+        _create(params_path / "templates")
 
     @staticmethod
     def get_encoding(model):

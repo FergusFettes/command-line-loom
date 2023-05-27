@@ -63,7 +63,7 @@ TREE_DEFAULT_PARAMS = {
     "append": False,
 }
 
-APP_DEFAULT_PARAMS = {
+MAIN_DEFAULT_PARAMS = {
     "api_key": "",
     "api_base": "https://api.openai.com/v1",
     "cd2_key": "",

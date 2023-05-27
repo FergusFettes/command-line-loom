@@ -26,14 +26,14 @@ class Templater:
 
     @staticmethod
     def in_(ctx: Context, node):
-        params = get_params(ctx, "tr")
+        params = get_params(ctx, "templater")
         in_prefix = params["in_prefix"] or ""
         node.prefix = in_prefix
         return node
 
     @staticmethod
     def prompt(ctx: Context, prompt):
-        params = get_params(ctx, "tr")
+        params = get_params(ctx, "templater")
         out_prefix = params["out_prefix"] or ""
         prompt = prompt + out_prefix
         if params["template"]:
@@ -51,7 +51,7 @@ class Templater:
 
     @staticmethod
     def out(ctx: Context, node):
-        params = get_params(ctx, "tr")
+        params = get_params(ctx, "templater")
         out_prefix = params["out_prefix"] or ""
         node.prefix = out_prefix
         return node
@@ -79,9 +79,13 @@ class Templater:
 
 def create(ctx: Context):
     # Find the templates, and make sure they are in the right place
+    templates_path = get_params_path(ctx).parent / "templates"
+    _create(templates_path)
+
+
+def _create(templates_path: str):
     tttpath = Path(tttp.__file__).parent
     new_templates = tttpath.parent / "templates"
-    templates_path = get_params_path(ctx).parent / "templates"
     templates_path.mkdir(parents=True, exist_ok=True)
     for template in new_templates.glob("*.j2"):
         if not (templates_path / template.name).exists():
@@ -89,8 +93,8 @@ def create(ctx: Context):
 
 
 def launch(ctx):
-    params = get_params(ctx)
-    params_path = get_params_path(ctx)
+    params = get_params(ctx, "templater")
+    params_path = get_params_path(ctx, "templater")
     template_file = params_path.parent / "templates" / params["template_file"]
     if template_file.exists():
         contents = template_file.read_text()

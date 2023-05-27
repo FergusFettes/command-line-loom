@@ -47,8 +47,6 @@ from cll.tree import (
 )
 
 
-from cll.config import OPENAI_DEFAULT_PARAMS, TREE_DEFAULT_PARAMS, TEMPLATE_DEFAULT_PARAMS, APP_DEFAULT_PARAMS
-
 from typer_shell import make_typer_shell
 from typer import get_app_dir
 
@@ -56,18 +54,17 @@ from typer import get_app_dir
 main = make_typer_shell(
     prompt="🧵: ",
     intro="Welcome to Command Line Loom! Type help or ? to list commands.",
-    obj=App(),
-    params=APP_DEFAULT_PARAMS,
+    obj=App.load(),
     params_path=Path(get_app_dir("cll")) / "main.yaml",
 )
 
 
 model_cli = make_typer_shell(
     prompt="📃: ",
-    obj=App(),
+    obj=App.load(),
     intro="Welcome to the Model Config! Type help or ? to list commands.",
-    params=OPENAI_DEFAULT_PARAMS,
     params_path=Path(get_app_dir("cll")) / "model.yaml",
+    aliases={"p": "model"}
 )
 model_cli.command(name="default", hidden=True)(model_default)
 model_cli.command(name="add-logit")(add_logit)
@@ -78,11 +75,11 @@ model_cli.command(name="rl", hidden=True)(remove_logit)
 
 tree_cli = make_typer_shell(
     prompt="🌲: ",
-    obj=App(),
+    obj=App.load(),
     intro="",
     launch=tree_launch,
-    params=TREE_DEFAULT_PARAMS,
-    params_path=Path(get_app_dir("cll")) / "tree.yaml"
+    params_path=Path(get_app_dir("cll")) / "tree.yaml",
+    aliases={"t": "tree"}
 )
 tree_cli.command(name="chats")(list_chats)
 tree_cli.command()(default)
@@ -141,12 +138,12 @@ main.add_typer(tree_cli, name="t", hidden=True)
 
 
 templater_cli = make_typer_shell(
-    obj=App(),
+    obj=App.load(),
     prompt="🤖: ",
     intro="Welcome to the Templater shell.",
-    params=TEMPLATE_DEFAULT_PARAMS,
     params_path=Path(get_app_dir("cll")) / "templater.yaml",
-    launch=templater_launch
+    launch=templater_launch,
+    aliases={"tr": "templater", "template": "templater"}
 )
 templater_cli.command()(create)
 templater_cli.command()(set_default)
@@ -168,6 +165,7 @@ templater_cli.command(name="s", hidden=True)(show)
 
 for app in [main, tree_cli]:
     app.add_typer(templater_cli, name="template", help="(tr) Templater.")
+    app.add_typer(templater_cli, name="templater", hidden=True)
     app.add_typer(templater_cli, name="tr", hidden=True)
     app.add_typer(model_cli, name="model", help="(p) Model params.")
     app.add_typer(model_cli, name="p", hidden=True)

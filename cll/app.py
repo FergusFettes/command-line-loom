@@ -5,11 +5,11 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 from cll.model import App
+from typer_shell import get_params
 
 
 app = FastAPI()
-app.obj = App()
-app.obj.load()
+app.obj = App.load()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -24,4 +24,16 @@ def introduction():
 
 
 @app.get("/model")
+def model_params():
+    return get_params(app, "model")
+# clone for the others
 
+
+@app.get("/tree/tree")
+def get_tree():
+    return {"tree": app.obj.tree.index.index_struct.get_full_repr()}
+
+
+@app.get("/tree/prompt")
+def get_prompt():
+    return {"prompt": app.obj.tree.prompt}

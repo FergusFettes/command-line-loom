@@ -1,36 +1,20 @@
 import binascii
 from copy import deepcopy
 from dataclasses import dataclass
-from pathlib import Path
 from typing import List, Optional
 
+import yaml
 import iterfzf
 import click
 from cll.data_structs import LoomIndex
 from rich import print
 from rich.console import Console
 from rich.panel import Panel
-from typer import Argument, Context, get_app_dir
+from typer import Argument, Context
 from typing_extensions import Annotated
 
-from typer_shell import make_typer_shell
-from typer_shell.typer_shell import _update as update, save as save_config, _print as print_config
+from typer_shell import get_params, _update, save as save_config, print as print_config, get_params_path, add_params
 from .encoder import Encoder
-
-
-@dataclass
-class DummyTree:
-    params: Optional[dict] = None
-    prompt: str = ""
-
-    def input(self, prompt):
-        self.prompt = prompt
-
-    def output(self, *_):
-        pass
-
-    def __len__(self):
-        return 0
 
 
 @dataclass
@@ -43,13 +27,24 @@ class Tree:
     decoder: Encoder = Encoder(Encoder.none)
 
     def __post_init__(self):
-        self.file = Path(self.file)
-
         if self.file and self.file.exists():
             self.index = LoomIndex.load_from_disk(str(self.file))
             return
 
+        self.file.parent.mkdir(parents=True, exist_ok=True)
         self.index = LoomIndex()
+
+    @staticmethod
+    def list_files(path):
+        if path.exists():
+            Tree._list_dir(path)
+
+    @staticmethod
+    def _list_dir(path):
+        files = [x for x in path.glob("*.json")]
+        print(f"Found {len(files)} chats.")
+        for file in files:
+            print(f"{file.stem}")
 
     @property
     def prompt_context(self):
@@ -95,6 +90,8 @@ class Tree:
 
 
 def path_with_current(ctx):
+    if not getattr(ctx.obj.tree, "index", None):
+        return
     index = ctx.obj.tree.index
     Console().clear()
 
@@ -117,16 +114,12 @@ def path_with_current(ctx):
     print(Panel.fit(path_str, title="Prompt (unencoded, without template)", border_style="bold magenta"))
 
 
-def get_params(ctx):
-    name = ctx.command.name
-    if name not in ctx.obj.params_groups:
-        if ctx.parent:
-            name = ctx.parent.command.name
-    if name not in ctx.obj.params_groups:
-        print("Cant find params!")
-    else:
-        params = ctx.obj.params_groups[name]['params']
-        return params
+def launch(ctx, string=None):
+    params = get_params(ctx)
+    params_path = get_params_path(ctx)
+    file_path = params_path.parent / "chats" / f"{params['chat_name']}.json"
+    ctx.obj.tree = Tree(file_path)
+    set_encoder(ctx, string)
 
 
 def set_encoder(ctx, string=None):
@@ -140,39 +133,33 @@ def set_encoder(ctx, string=None):
 
     if Encoder._get_encoder(string) == Encoder.none:
         string = "none"
-    params = get_params(ctx)
     if params:
         params["encoder"] = string
     print(params)
     path_with_current(ctx)
 
 
-cli = make_typer_shell(
-    prompt="🌲: ",
-    launch=set_encoder,
-    params={"path_neighborhood": 3, "head_neighborhood": 10},
-    params_path=Path(get_app_dir("cll")) / "tree.yaml"
-)
+def list_chats(
+    ctx: Context,
+    list: bool = False,
+    dump: bool = False,
+):
+    """List available chat files."""
+    config = ctx.obj.config
+    if list:
+        Tree(config=config).list_files()
+    if dump:
+        print(Tree(config=config).dump())
 
 
-@cli.command(hidden=True)
 def default(ctx: Context, line: str):
     """Default command"""
-    # # First, try splitting into different letters
-    # if len(line) < 5:
-    #     line = list(line)
-    #     if ctx.parent:
-    #         command = ctx.parent.command.get_command(ctx, line[0])
-    #         if command:
-    #             ctx.invoke(command, ctx=ctx, *line[1:])
-
     if len(line) < 20:
         print("Ill assume you didn't mean to send that. If you do, use 'send X'. (Below 20 chars.)")
         return
     ctx.invoke(send, ctx=ctx, msg=line.split(" "))
 
 
-@cli.command(hidden=True)
 def h(ctx: Context, count: int = 1):
     "Move to left sibling"
     for _ in range(count):
@@ -180,7 +167,6 @@ def h(ctx: Context, count: int = 1):
     path_with_current(ctx)
 
 
-@cli.command(hidden=True)
 def j(ctx: Context, count: int = 1):
     "Move to parent"
     for _ in range(count):
@@ -188,7 +174,6 @@ def j(ctx: Context, count: int = 1):
     path_with_current(ctx)
 
 
-@cli.command(hidden=True)
 def k(ctx: Context, count: int = 1):
     "Move to child"
     for _ in range(count):
@@ -196,8 +181,6 @@ def k(ctx: Context, count: int = 1):
     path_with_current(ctx)
 
 
-@cli.command(hidden=True)
-@cli.command(name="l", hidden=True)
 def left(ctx: Context, count: int = 1):
     "Move to left sibling"
     for _ in range(count):
@@ -205,7 +188,6 @@ def left(ctx: Context, count: int = 1):
     path_with_current(ctx)
 
 
-@cli.command()
 def navigate(ctx: Context, direction: str, count: int = 1):
     'Navigate with "hjkl" or "wasd".'
     "You don't need to pass them to this function."
@@ -215,8 +197,6 @@ def navigate(ctx: Context, direction: str, count: int = 1):
     path_with_current(ctx)
 
 
-@cli.command()
-@cli.command(name="nb", hidden=True)
 def neighborhood(ctx: Context):
     "The tree view is truncated for nodes that are far from the current path.\n"
     "This command changes the size of the neighborhood.\n"
@@ -230,15 +210,12 @@ def neighborhood(ctx: Context):
         value = input(f"{key} [{value}]: ")
         if not value:
             continue
-        update(key, value, params)
+        _update(key, value, params)
     save_config(ctx)
     path_with_current(ctx)
     print(params)
 
 
-@cli.command()
-@cli.command(name="en", hidden=True)
-@cli.command(name="encoding", hidden=True)
 def encoder(
         ctx: Context,
         encoder: Annotated[Optional[str], Argument()] = None
@@ -271,8 +248,6 @@ def encoder(
     print_config(ctx)
 
 
-@cli.command()
-@cli.command(name="re", hidden=True)
 def reencode(ctx: Context, index: Annotated[Optional[str], Argument()] = None):
     "(re) Reencode the current node."
     if not index:
@@ -286,8 +261,6 @@ def reencode(ctx: Context, index: Annotated[Optional[str], Argument()] = None):
     path_with_current(ctx)
 
 
-@cli.command()
-@cli.command(name="de", hidden=True)
 def redecode(ctx: Context, index: Annotated[Optional[str], Argument()] = None):
     "(de) Reencode the current node backwards."
     if not index:
@@ -301,9 +274,6 @@ def redecode(ctx: Context, index: Annotated[Optional[str], Argument()] = None):
     path_with_current(ctx)
 
 
-@cli.command()
-@cli.command(name="d", hidden=True)
-@cli.command(name="p", hidden=True)
 def display(
     ctx: Context,
     type: Annotated[Optional[str], Argument()] = "t",
@@ -342,7 +312,7 @@ def display(
 
     if type in ["tr", "templated"]:
         prompt = ctx.obj.tree.prompt
-        prompt = ctx.obj.templater.prompt(prompt)
+        prompt = ctx.obj.templater.prompt(ctx, prompt)
         print(prompt)
         return
 
@@ -358,15 +328,11 @@ def display(
                 continue
 
 
-@cli.command(name="t", hidden=True)
-@cli.command(name="dt", hidden=True)
 def display_tree(ctx: Context):
     """(t) Display the tree."""
     display(ctx, "t")
 
 
-@cli.command(name="a", hidden=True)
-@cli.command(name="da", hidden=True)
 def display_all(ctx: Context):
     """(t) Display the tree."""
     display(ctx, "a")
@@ -376,12 +342,10 @@ def _append(ctx, msg):
     if isinstance(msg, tuple) or isinstance(msg, list):
         msg = " ".join(msg)
     node = ctx.obj.tree.index._create_node(msg)
-    node = ctx.obj.templater.in_(node)
+    node = ctx.obj.templater.in_(ctx, node)
     ctx.obj.tree.input(node)
 
 
-@cli.command()
-@cli.command(name="s", hidden=True)
 def send(
     ctx: Context,
     msg: Annotated[Optional[List[str]], Argument()],
@@ -394,13 +358,13 @@ def send(
 def _send(ctx):
     # Encoding happens in the tree
     prompt = ctx.obj.tree.prompt
-    params = deepcopy(ctx.obj.tree.params)
+    params = deepcopy(get_params(ctx, "model"))
 
     # Then templating (so template stays in english)
-    prompt = ctx.obj.templater.prompt(prompt)
+    prompt = ctx.obj.templater.prompt(ctx, prompt)
     params["prompt"] = prompt
 
-    responses, choice = ctx.obj.simple_gen(ctx.obj.config, params)
+    responses, choice = ctx.obj.simple_gen(get_params(ctx, "main"), params)
     if len(responses) == 1:
         callback = ctx.obj.tree.extend
     else:
@@ -415,7 +379,7 @@ def _send(ctx):
             pass
         response = ctx.obj.tree.index._create_node(response)
         # Then template
-        response = ctx.obj.templater.out(response)
+        response = ctx.obj.templater.out(ctx, response)
         callback(response)
 
     if choice is not None:
@@ -427,16 +391,11 @@ def _send(ctx):
     path_with_current(ctx)
 
 
-@cli.command()
-@cli.command(name="pu", hidden=True)
-@cli.command(name="r", hidden=True)
 def push(ctx: Context):
     """(pu, r) sends the tree with no new message."""
     _send(ctx)
 
 
-@cli.command()
-@cli.command(name="n", hidden=True)
 def new(ctx: Context):
     """n[ew] starts a new chain (a new root)"""
     ctx.obj.tree.index.clear_checkout()
@@ -445,8 +404,6 @@ def new(ctx: Context):
     path_with_current(ctx)
 
 
-@cli.command()
-@cli.command(name="ap", hidden=True)
 def append(
     ctx: Context,
     msg: Annotated[Optional[List[str]], Argument()] = None,
@@ -457,14 +414,11 @@ def append(
     _append(ctx, msg)
 
 
-@cli.command()
-@cli.command("st", hidden=True)
 def save_tree(ctx: Context):
     """(st) Save the current tree"""
     ctx.obj.tree.save()
 
 
-@cli.command()
 def tag(
     ctx: Context,
     tag: Annotated[Optional[str], Argument()],
@@ -475,9 +429,6 @@ def tag(
     print(ctx.obj.tree.index.tags)
 
 
-@cli.command()
-@cli.command(name="c", hidden=True)
-@cli.command(name="co", hidden=True)
 def checkout(ctx: Context, tag: str):
     "(c, co) checks out a tag or index"
     if tag.isdigit():
@@ -486,8 +437,6 @@ def checkout(ctx: Context, tag: str):
     path_with_current(ctx)
 
 
-@cli.command()
-@cli.command(name="e", hidden=True)
 def edit(ctx: Context, index: Annotated[Optional[str], Argument()] = None):
     """(e) Edit a node (default is the current node).
     """
@@ -505,8 +454,6 @@ def edit(ctx: Context, index: Annotated[Optional[str], Argument()] = None):
     print(output)
 
 
-@cli.command()
-@cli.command(name="prompt", hidden=True)
 def edit_prompt(ctx: Context, index: Annotated[Optional[str], Argument()] = None):
     """(prompt) Export the full prompt to an editor for saving."""
     prev_encoder = ctx.obj.tree.encoder
@@ -526,8 +473,6 @@ def parse_indexes(indexes):
     return [int(index) if index.isdigit() else index for index in indexes]
 
 
-@cli.command()
-@cli.command(name="del", hidden=True)
 def delete(ctx: Context, indexes: Annotated[Optional[str], Argument()] = None, all: bool = False):
     "(del) delete some nodes (space separated) (last one by default) (and subnodes if --all)"
     if not indexes:
@@ -537,8 +482,6 @@ def delete(ctx: Context, indexes: Annotated[Optional[str], Argument()] = None, a
     ctx.obj.tree.index.delete(indexes, all=all)
 
 
-@cli.command()
-@cli.command(name="cp", hidden=True)
 def cherry_pick(ctx: Context, indexes: str):
     "(cp) Copy nodes onto the current branch (can be indexes or tags, space separated)"
     indexes = parse_indexes(indexes)
@@ -546,8 +489,6 @@ def cherry_pick(ctx: Context, indexes: str):
     path_with_current(ctx)
 
 
-@cli.command()
-@cli.command(name="hh", hidden=True)
 def hoist(ctx: Context, target: Annotated[Optional[str], Argument()] = None):
     "(hh) Copies the node and all downstreams to a new root (or to a target if specified)."
     index = ctx.obj.tree.index.path[-1].index
@@ -555,7 +496,6 @@ def hoist(ctx: Context, target: Annotated[Optional[str], Argument()] = None):
     path_with_current(ctx)
 
 
-@cli.command()
 def dump(ctx: Context):
     "Dump nodes into a fuzzy finder"
     selection = iterfzf.iterfzf(ctx.obj.tree.index.index_struct.active_tree_with_index, multi=True)
@@ -592,41 +532,3 @@ def dump(ctx: Context):
         ctx.obj.tree.index.delete(ids)
 
     path_with_current(ctx)
-
-
-# @staticmethod
-# def context(_, command_params, tree):
-#     if command_params and command_params[0] == "help":
-#         click.echo(
-#             "modify the context. context can be added to nodes but are not part of the main path\n"
-#             "\t\t\tsubcommands are clear, list, remove or add"
-#         )
-#         return
-#
-#     if command_params[0] == "clear":
-#         for node in tree.index.path:
-#             if node.node_info.get("context"):
-#                 del node.node_info["context"]
-#
-#     if command_params[0] == "list":
-#         docs = [(tree.index.get_context(node), node.index) for node in tree.index.path]
-#         docs = [(doc, index) for doc, index in docs if doc is not None]
-#         for doc, index in docs:
-#             doc_text = doc.text.replace("\n", " ")[: tree.termwidth]
-#             click.echo(f"{index}: {doc_text}")
-#         return
-#
-#     if command_params[0] == "remove":
-#         for index in command_params[1:]:
-#             tree.index.delete_context(int(index))
-#
-#     if command_params[0] == "add":
-#         # If no context is given, just add the last node as context
-#         if len(command_params) == 1:
-#             new_context = tree.index.path[-1].text
-#         else:
-#             new_context = " ".join(command_params[1:])
-#
-#         tree.index.add_context(new_context, tree.index.path[-1])
-#
-#     tree.save()

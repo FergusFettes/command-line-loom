@@ -1,3 +1,7 @@
+# DEPRECATED: Deprecation Notice
+
+This was very badly designed. From startup to looming took like several keypresses and everything  was hidden behind options menues. I have made a new better one but its not released. I'll probably incorporate the learnins from these two interfaces into [tinyloom](https://github.com/FergusFettes/tinyloom). Long story short, the terminal loom interface in general gets unwieldy with larger trees, and you really want a network visualization at some point. Gotta head back to the browser with your tail between your legs.
+
 # Command Line Loom
 
 Command Line Loom is a Python command-line tool for generating text using OpenAI's GPT-3 and other models. It includes a modular model system that allows for easy integration of new models and customization of existing ones.
